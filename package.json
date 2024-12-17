@@ -1,0 +1,31 @@
+{
+  "name": "ssh-bridge",
+  "version": "1.0.0",
+  "description": "Run SSH commands through a connection pool daemon",
+  "author": "Joshua Wise <joshuathomaswise@gmail.com>",
+  "homepage": "https://github.com/WiseLibs/ssh-bridge#readme",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/WiseLibs/ssh-bridge.git"
+  },
+  "license": "MIT",
+  "main": "./src/index.js",
+  "bin": {
+    "ssh-bridge-exec": "./src/cli/index.js"
+  },
+  "scripts": {
+    "test": "mocha --slow=200 --timeout=5000"
+  },
+  "files": [
+    "src/**"
+  ],
+  "dependencies": {
+    "commander": "^11.0.0",
+    "fs-ext": "^2.0.0",
+    "ssh2": "^1.16.0"
+  },
+  "devDependencies": {
+    "chai": "^4.3.7",
+    "mocha": "^10.2.0"
+  }
+}
