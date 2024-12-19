@@ -5,7 +5,7 @@ const { program } = require('commander');
 	TODO: write comment
  */
 
-async function main(userHost, command) {
+async function main(userHost, command, args) {
 	// TODO: implement cli
 }
 
