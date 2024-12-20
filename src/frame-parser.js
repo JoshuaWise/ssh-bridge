@@ -91,7 +91,7 @@ module.exports = class FrameParser {
 	// Eventually, the daemon will send either a CONNECTED or UNCONNECTED frame.
 	// If the client receives a CONNECTED frame, it may receive a DISCONNECTED
 	// frame at any point in the future, signaling that the SSH connection has
-	// ended (expectedly or not), at which point the client connection will end.
+	// ended (for any reason), after which the client connection will also end.
 	static get CHALLENGE() { return 3; }
 	static get CHALLENGE_RESPONSE() { return 4; }
 	static get CONNECTED() { return 5; }
