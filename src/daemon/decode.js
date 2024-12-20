@@ -3,49 +3,57 @@ const assert = require('node:assert');
 
 const ValidationError = Symbol();
 
-exports.decodeConnectRequest = (data) => {
+exports.reuseParams = (data) => {
 	assert(Buffer.isBuffer(data));
-
-	let obj;
 	try {
-		obj = JSON.parse(data.toString());
-	} catch (_) {
-		return null;
+		const { username, hostname, port = 22 } = expectJSON(data);
+
+		validate(isNonEmptyString(hostname));
+		validate(isNonEmptyString(username));
+		validate(isValidPort(port));
+
+		return { username, hostname: hostname.toLowerCase(), port };
+	} catch (err) {
+		if (err === ValidationError) return null;
+		throw err;
 	}
+};
 
+exports.connectParams = (data) => {
+	assert(Buffer.isBuffer(data));
 	try {
-		validate(isObject(obj));
-
 		const {
 			username,
 			hostname,
 			port = 22,
 			fingerprint,
+			reusable = false,
 			privateKey,
 			passphrase,
 			password,
-		} = obj;
-
-		// TODO: what about keyboard-interactive auth?
+			tryKeyboard = false,
+		} = expectJSON(data);
 
 		validate(isNonEmptyString(hostname));
 		validate(isNonEmptyString(username));
+		validate(isValidPort(port));
 		validate(isNonEmptyString(fingerprint) || fingerprint === undefined);
 		validate(isNonEmptyString(privateKey) || privateKey === undefined);
 		validate(isNonEmptyString(passphrase) || passphrase === undefined);
 		validate(isNonEmptyString(password) || password === undefined);
-		validate(Number.isInteger(port));
-		validate(port > 0);
-		validate(port < 65536);
+		validate(typeof tryKeyboard === 'boolean');
+		validate(typeof reusable === 'boolean');
 
 		return {
 			username,
-			hostname,
+			hostname: hostname.toLowerCase(),
 			port,
 			fingerprint,
+			reusable,
 			privateKey,
 			passphrase,
 			password,
+			tryKeyboard,
 		};
 	} catch (err) {
 		if (err === ValidationError) return null;
@@ -53,7 +61,22 @@ exports.decodeConnectRequest = (data) => {
 	}
 };
 
-exports.decodeCommand = (data) => {
+exports.challengeResponse = (data) => {
+	assert(Buffer.isBuffer(data));
+	try {
+		const { responses } = expectJSON(data);
+
+		validate(Array.isArray(responses));
+		validate(responses.every(x => typeof x === 'string'));
+
+		return responses;
+	} catch (err) {
+		if (err === ValidationError) return null;
+		throw err;
+	}
+};
+
+exports.command = (data) => {
 	assert(Buffer.isBuffer(data));
 	const str = data.toString();
 
@@ -65,13 +88,24 @@ exports.decodeCommand = (data) => {
 		if (err === ValidationError) return null;
 		throw err;
 	}
-
 };
 
 function validate(boolean) {
 	if (!boolean) {
 		throw ValidationError;
 	}
+}
+
+function expectJSON(data) {
+	let parsed;
+	try {
+		parsed = JSON.parse(data.toString());
+	} catch (_) {
+		throw ValidationError;
+	}
+
+	validate(isObject(parsed));
+	return parsed;
 }
 
 function isObject(value) {
@@ -84,5 +118,12 @@ function isObject(value) {
 function isNonEmptyString(value) {
 	if (typeof value !== 'string') return false;
 	if (value === '') return false;
+	return true;
+}
+
+function isValidPort(value) {
+	if (!Number.isInteger(value)) return false;
+	if (value <= 0) return false;
+	if (value > 65535) return false;
 	return true;
 }

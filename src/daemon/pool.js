@@ -1,0 +1,224 @@
+'use strict';
+const { EventEmitter } = require('node:events');
+const { Client } = require('ssh2');
+
+const CACHE_TTL = 1000 * 60 * 60 * 12; // 12 hours
+const cachedConnections = new Map();
+
+exports.clear = () => {
+	for (const [cacheKey, ssh] of cachedConnections) {
+		cachedConnections.delete(cacheKey);
+		ssh.relinquish(false);
+	}
+};
+
+exports.reuse = ({ username, hostname, port }, emitter) => {
+	const cacheKey = getCacheKey(username, hostname, port);
+	const ssh = cachedConnections.get(cacheKey);
+	if (ssh) {
+		cachedConnections.delete(cacheKey);
+		emitter.emit('connected', ssh._reuse(emitter));
+		return ssh;
+	} else {
+		emitter.emit('unconnected', 'no cached connection to reuse');
+		return null;
+	}
+};
+
+exports.connect = ({ username, hostname, port, fingerprint, reusable, ...auth }, emitter) => {
+	const connection = new Client();
+
+	let fingerprintMismatch = null;
+	const checkFingerprint = (receivedFingerprint) => {
+		receivedFingerprint = Buffer.from(receivedFingerprint, 'hex').toString('base64');
+		if (!fingerprint) {
+			fingerprint = receivedFingerprint;
+			return true;
+		} else if (fingerprint === receivedFingerprint) {
+			return true;
+		} else {
+			fingerprintMismatch = { expected: fingerprint, received: receivedFingerprint };
+			return false;
+		}
+	};
+
+	let challengeCallbacks = [];
+	connection.on('keyboard-interactive', (title, instructions, language, prompts, cb) => {
+		challengeCallbacks.push(cb);
+		emitter.emit('challenge', { title, instructions, language, prompts });
+	});
+
+	let banner = null;
+	connection.on('banner', (message) => {
+		// TODO: make sure this occurs before connection.on('ready')
+		banner = message.endsWith('\n') ? message : message + '\n';
+	});
+
+	let connectInfo = null;
+	connection.on('ready', () => {
+		connectInfo = { fingerprint, banner };
+		emitter.emit('connected', connectInfo);
+		challengeCallbacks = [];
+		banner = null;
+	});
+
+	let done = false;
+	connection.on('error', (err) => {
+		if (done) return;
+		done = true;
+		emitter.emit(connectInfo ? 'disconnected' : 'unconnected', toErrorMessage(err, fingerprintMismatch));
+		challengeCallbacks = [];
+		banner = null;
+	});
+
+	connection.on('close', () => {
+		if (done) return;
+		done = true;
+		emitter.emit(connectInfo ? 'disconnected' : 'unconnected', 'remote connection closed unexpectedly');
+		challengeCallbacks = [];
+		banner = null;
+	});
+
+	connection.setNoDelay(true);
+	connection.connect({
+		host: hostname,
+		port: port,
+		username: username,
+		readyTimeout: 10000,
+		keepaliveInterval: 10000,
+		keepaliveCountMax: 3,
+		hostHash: 'sha256',
+		hostVerifier: checkFingerprint,
+		...auth,
+	});
+
+	let ttlTimer = null;
+	let liveChannel = null;
+	let queuedInputData = [];
+	let queuedInputEnd = false;
+	return {
+		challengeResponse(responses) {
+			if (challengeCallbacks.length) {
+				(challengeCallbacks.shift())(responses);
+			}
+		},
+		exec(command, pty) {
+			connection.exec(command, { pty }, (error, channel) => {
+				if (error != null) {
+					queuedInputData = [];
+					queuedInputEnd = false;
+					emitter.emit('result', { error: toErrorMessage(error) });
+					return;
+				}
+
+				for (const data of queuedInputData) {
+					channel.write(data);
+				}
+				if (queuedInputEnd) {
+					channel.end();
+				}
+
+				liveChannel = channel;
+				queuedInputData = [];
+				queuedInputEnd = false;
+
+				channel.on('close', (code, signal) => {
+					liveChannel = null;
+					if (error != null) {
+						emitter.emit('result', { error: toErrorMessage(error) });
+					} else {
+						emitter.emit('result', { code, signal });
+					}
+				});
+
+				channel.on('error', (err) => {
+					if (error == null) error = err;
+				});
+
+				channel.stderr.on('error', (err) => {
+					if (error == null) error = err;
+				});
+
+				channel.on('data', (data) => {
+					emitter.emit('stdout', data);
+				});
+
+				channel.stderr.on('data', (data) => {
+					emitter.emit('stderr', data);
+				});
+			});
+		},
+		writeStdin(data) {
+			if (liveChannel) {
+				if (liveChannel.writable) {
+					liveChannel.write(data);
+				}
+			} else if (!queuedInputEnd) {
+				queuedInputData.push(data);
+			}
+		},
+		endStdin() {
+			if (liveChannel) {
+				if (liveChannel.writable) {
+					liveChannel.end();
+				}
+			} else {
+				queuedInputEnd = true;
+			}
+		},
+		relinquish(shouldReuse) {
+			if (!shouldReuse || !reusable) {
+				connection.end();
+				return;
+			}
+
+			const cacheKey = getCacheKey(username, hostname, port);
+			const cleanup = () => {
+				clearTimeout(ttlTimer);
+				if (cachedConnections.get(cacheKey) === this) {
+					cachedConnections.delete(cacheKey);
+				}
+			};
+
+			cachedConnections.get(cacheKey)?.relinquish(false);
+			cachedConnections.set(cacheKey, this);
+			emitter = new EventEmitter();
+			emitter.once('disconnected', cleanup);
+			ttlTimer = setTimeout(() => { cleanup(); connection.end(); }, CACHE_TTL);
+		},
+		_reuse(newEmitter) {
+			emitter = newEmitter;
+			clearTimeout(ttlTimer);
+			return connectInfo;
+		},
+	};
+};
+
+function getCacheKey(username, hostname, port) {
+	return [
+		Buffer.from(username).toString('base64'),
+		Buffer.from(hostname).toString('base64'),
+		String(port),
+	].join('\n');
+}
+
+function toErrorMessage(err, fingerprintMismatch) {
+	switch (err.level) {
+		case 'handshake':
+			if (fingerprintMismatch) {
+				return `host fingerprint has changed\nWARNING: You could be getting hacked! Contact an administrator immediately!\n    expected fingerprint: ${fingerprintMismatch.expected}\n    received fingerprint: ${fingerprintMismatch.received}`;
+			}
+			return `SSH handshake failed (${err.message})`;
+		case 'client-socket':
+			return `connection error (${err.message})`;
+		case 'client-timeout':
+			return 'connection timed out';
+		case 'client-authentication':
+			return 'authentication denied';
+		case 'client-dns':
+			return `DNS lookup failed (${err.message})`;
+		default:
+			console.error(err);
+			return `unexpected error (${err.message})`;
+	}
+}

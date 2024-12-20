@@ -1,75 +1,198 @@
 'use strict';
+const { EventEmitter } = require('node:events');
 const FrameParser = require('../frame-parser');
-const { decodeConnectRequest, decodeCommand } = require('./decode');
+const decode = require('./decode');
+const pool = require('./pool');
 
 /*
 	TODO: write comment
  */
 
-const State = {
-	EMPTY: 1,
-	CONNECTING: 2,
-	CONNECTED: 3,
-	EXECUTING: 4,
-};
+const INITIAL = Symbol();
+const CONNECTING = Symbol();
+const READY = Symbol();
+const EXECUTING = Symbol();
+const ERRORED = Symbol();
 
 module.exports = (signal, socket) => {
+	const emitter = new EventEmitter();
 	const frameParser = new FrameParser();
-	let state = State.EMPTY;
+	let state = INITIAL;
+	let ssh = null;
 
+	const onAbort = () => {
+		if (state !== EXECUTING) {
+			state = ERRORED;
+			socket.destroySoon();
+		}
+	};
+
+	signal.addEventListener('abort', onAbort);
 	socket.setNoDelay(true);
 	socket.setKeepAlive(true, 1000);
 	socket.on('error', console.error);
+	socket.on('close', () => {
+		ssh && ssh.relinquish(state === READY);
+		ssh = null;
+		frameParser.clear();
+		signal.removeEventListener('abort', onAbort);
+	});
+
 	socket.on('data', (chunk) => {
 		frameParser.append(chunk);
 		for (const frame of frameParser.frames()) {
 			switch (frame.type) {
-				case FrameParser.CONNECT: {
-					const request = decodeConnectRequest(frame.data);
-					if (request === null) {
-						// TODO: handle invalid connect request
+
+				case FrameParser.REUSE:
+					if (state === INITIAL) {
+						const params = decode.reuseParams(frame.data);
+						if (params) {
+							state = CONNECTING;
+							ssh = pool.reuse(params, emitter);
+						} else {
+							exception('malformed REUSE frame');
+						}
 					} else {
-						// TODO: handle connect request
+						exception('unexpected REUSE frame');
 					}
 					break;
-				}
-				case FrameParser.SIMPLE_COMMAND: {
-					const command = decodeCommand(frame.data);
-					if (command === null) {
-						// TODO: handle invalid command string
+
+				case FrameParser.CONNECT:
+					if (state === INITIAL) {
+						const params = decode.connectParams(frame.data);
+						if (params) {
+							state = CONNECTING;
+							ssh = pool.connect(params, emitter);
+						} else {
+							exception('malformed CONNECT frame');
+						}
 					} else {
-						// TODO: handle simple command
+						exception('unexpected CONNECT frame');
 					}
 					break;
-				}
-				case FrameParser.PTY_COMMAND: {
-					const command = decode.command(frame.data);
-					if (command === null) {
-						// TODO: handle invalid command string
-					} else {
-						// TODO: handle pty command
+
+				case FrameParser.CHALLENGE_RESPONSE:
+					if (state === CONNECTING) {
+						const responses = decode.challengeResponse(frame.data);
+						if (responses) {
+							ssh.challengeResponse(responses);
+						} else {
+							exception('malformed CHALLENGE_RESPONSE frame');
+						}
+					} else if (state !== INITIAL && state !== READY) {
+						exception('unexpected CHALLENGE_RESPONSE frame');
 					}
 					break;
-				}
-				case FrameParser.STDIN: {
-					if (frame.data.byteLength) {
-						// TODO: handle stdin data
+
+				case FrameParser.SIMPLE_COMMAND:
+				case FrameParser.PTY_COMMAND:
+					if (state === READY) {
+						const command = decode.command(frame.data);
+						if (command) {
+							state = EXECUTING;
+							ssh.exec(command, frame.type === FrameParser.PTY_COMMAND);
+						} else {
+							exception('malformed *_COMMAND frame');
+						}
 					} else {
-						// TODO: end stdin
+						exception('unexpected *_COMMAND frame');
 					}
 					break;
-				}
+
+				case FrameParser.STDIN:
+					if (state === EXECUTING) {
+						if (frame.data.byteLength) {
+							ssh.writeStdin(frame.data);
+						} else {
+							ssh.endStdin();
+						}
+					}
+					break;
 			}
 		}
 	});
 
-	socket.on('close', () => {
-		// TODO: clean up
+	emitter.on('connected', (info) => {
+		if (state === CONNECTING) {
+			state = READY;
+			sendJSON(FrameParser.CONNECTED, info);
+		} else {
+			exception('internal error involving unexpected connection');
+		}
 	});
 
-	signal.addEventListener('abort', () => {
-		// TODO: stop accepting new commands
-		// TODO: if there is a queued/pending command, wait for it to finish
-		// TODO: if/when there is no queued/pending command, close the connection
+	emitter.on('unconnected', (reason) => {
+		ssh = null;
+		if (state === CONNECTING) {
+			state = INITIAL;
+			sendJSON(FrameParser.UNCONNECTED, { reason });
+		} else {
+			exception('internal error involving unexpected unconnection');
+		}
 	});
+
+	emitter.on('disconnected', (reason) => {
+		ssh = null;
+		if (state === READY || state === EXECUTING) {
+			state = ERRORED;
+			sendJSON(FrameParser.DISCONNECTED, { reason });
+			socket.destroySoon();
+		} else {
+			exception('internal error involving unexpected disconnection');
+		}
+	});
+
+	emitter.on('challenge', (challenge) => {
+		if (state === CONNECTING) {
+			sendJSON(FrameParser.CHALLENGE, challenge);
+		} else {
+			exception('internal error involving unexpected challenge');
+		}
+	});
+
+	emitter.on('stdout', (data) => {
+		if (state === EXECUTING) {
+			sendRaw(FrameParser.STDOUT, data);
+		} else {
+			exception('internal error involving unexpected stdout');
+		}
+	});
+
+	emitter.on('stderr', (data) => {
+		if (state === EXECUTING) {
+			sendRaw(FrameParser.STDERR, data);
+		} else {
+			exception('internal error involving unexpected stderr');
+		}
+	});
+
+	emitter.on('result', (result) => {
+		if (state === EXECUTING) {
+			state = READY;
+			sendJSON(FrameParser.RESULT, result);
+			signal.aborted && onAbort();
+		} else {
+			exception('internal error involving unexpected result');
+		}
+	});
+
+	function sendRaw(type, data) {
+		if (state === ERRORED) return;
+		if (!socket.writable) return;
+		socket.write(FrameParser.createFrame(type, data));
+	}
+
+	function sendJSON(type, data) {
+		if (state === ERRORED) return;
+		if (!socket.writable) return;
+		socket.write(FrameParser.createFrame(type, JSON.stringify(data)));
+	}
+
+	function exception(reason) {
+		if (state === ERRORED) return;
+		console.error(`Client-level EXCEPTION: ${reason}`);
+		sendJSON(FrameParser.EXCEPTION, { reason });
+		socket.destroySoon();
+		state = ERRORED;
+	}
 };

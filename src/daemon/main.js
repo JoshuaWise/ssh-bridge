@@ -5,6 +5,7 @@ const net = require('node:net');
 const path = require('node:path');
 const { flockSync } = require('fs-ext');
 const handler = require('./handler');
+const pool = require('./pool');
 
 /*
 	TODO: write comment
@@ -49,6 +50,7 @@ async function main() {
 	await new Promise((resolve) => {
 		server.close(resolve);
 		abortController.abort();
+		pool.clear();
 		lock.unlock();
 	});
 }
