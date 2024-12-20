@@ -39,6 +39,7 @@ async function main() {
 	});
 
 	// Keep the server open until a termination signal is received.
+	console.warn('Ready to accept local clients.');
 	server.on('error', console.error);
 	await new Promise((resolve) => {
 		process.on('SIGHUP', resolve);
@@ -47,12 +48,15 @@ async function main() {
 	});
 
 	// Gracefully shut down the server before exiting.
+	console.warn('Shutting down...');
 	await new Promise((resolve) => {
 		server.close(resolve);
 		abortController.abort();
 		pool.clear();
 		lock.unlock();
 	});
+
+	console.warn('Shutdown complete.');
 }
 
 function getConfigDir() {
