@@ -55,8 +55,10 @@ exports.connect = ({ username, hostname, port, fingerprint, reusable, ...auth },
 		}
 	};
 
+	let hadChallenges = false;
 	let challengeCallbacks = [];
 	connection.on('keyboard-interactive', (title, instructions, language, prompts, cb) => {
+		hadChallenges = true;
 		challengeCallbacks.push(cb);
 		emitter.emit('challenge', { title, instructions, language, prompts });
 	});
@@ -70,10 +72,13 @@ exports.connect = ({ username, hostname, port, fingerprint, reusable, ...auth },
 	let connectInfo = null;
 	connection.on('ready', () => {
 		connectInfo = { fingerprint, banner };
-		cachedCredentials.set(cacheKey, { ...auth });
 		emitter.emit('connected', connectInfo);
 		challengeCallbacks = [];
 		banner = null;
+
+		if (!reusingCredentials && !hadChallenges) {
+			cachedCredentials.set(cacheKey, { ...auth, tryKeyboard: false });
+		}
 	});
 
 	let done = false;
