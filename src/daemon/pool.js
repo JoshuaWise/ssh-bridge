@@ -2,8 +2,9 @@
 const { EventEmitter } = require('node:events');
 const { Client } = require('ssh2');
 
-const CACHE_TTL = 1000 * 60 * 60 * 12; // 12 hours
+const CONNECTIONS_TTL = 1000 * 60 * 60 * 12; // 12 hours
 const cachedConnections = new Map();
+const cachedCredentials = new Map();
 
 exports.clear = () => {
 	for (const [cacheKey, ssh] of cachedConnections) {
@@ -26,7 +27,19 @@ exports.reuse = ({ username, hostname, port }, emitter) => {
 };
 
 exports.connect = ({ username, hostname, port, fingerprint, reusable, ...auth }, emitter) => {
+	const cacheKey = getCacheKey(username, hostname, port);
 	const connection = new Client();
+
+	let reusingCredentials = false;
+	if (!auth.privateKey && !auth.password && !auth.tryKeyboard) {
+		if (cachedCredentials.has(cacheKey)) {
+			auth = cachedCredentials.get(cacheKey);
+			reusingCredentials = true;
+		} else {
+			emitter.emit('unconnected', 'no credentials provided');
+			return null;
+		}
+	}
 
 	let fingerprintMismatch = null;
 	const checkFingerprint = (receivedFingerprint) => {
@@ -57,18 +70,26 @@ exports.connect = ({ username, hostname, port, fingerprint, reusable, ...auth },
 	let connectInfo = null;
 	connection.on('ready', () => {
 		connectInfo = { fingerprint, banner };
+		cachedCredentials.set(cacheKey, { ...auth });
 		emitter.emit('connected', connectInfo);
 		challengeCallbacks = [];
 		banner = null;
 	});
 
 	let done = false;
+	// TODO: make sure the SSH connection is always closed after the "error" event (beore or after "connected")
 	connection.on('error', (err) => {
 		if (done) return;
 		done = true;
 		emitter.emit(connectInfo ? 'disconnected' : 'unconnected', toErrorMessage(err, fingerprintMismatch));
 		challengeCallbacks = [];
 		banner = null;
+
+		if (reusingCredentials && !connectInfo && err.level === 'client-authentication') {
+			if (cachedCredentials.get(cacheKey) === auth) {
+				cachedCredentials.delete(cacheKey);
+			}
+		}
 	});
 
 	connection.on('close', () => {
@@ -172,7 +193,6 @@ exports.connect = ({ username, hostname, port, fingerprint, reusable, ...auth },
 				return;
 			}
 
-			const cacheKey = getCacheKey(username, hostname, port);
 			const cleanup = () => {
 				clearTimeout(ttlTimer);
 				if (cachedConnections.get(cacheKey) === this) {
@@ -184,7 +204,7 @@ exports.connect = ({ username, hostname, port, fingerprint, reusable, ...auth },
 			cachedConnections.set(cacheKey, this);
 			emitter = new EventEmitter();
 			emitter.once('disconnected', cleanup);
-			ttlTimer = setTimeout(() => { cleanup(); connection.end(); }, CACHE_TTL);
+			ttlTimer = setTimeout(() => { cleanup(); connection.end(); }, CONNECTIONS_TTL);
 		},
 		_reuse(newEmitter) {
 			emitter = newEmitter;

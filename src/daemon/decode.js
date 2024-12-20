@@ -43,6 +43,7 @@ exports.connectParams = (data) => {
 		validate(isNonEmptyString(password) || password === undefined);
 		validate(typeof tryKeyboard === 'boolean');
 		validate(typeof reusable === 'boolean');
+		validate(!!privateKey || !passphrase);
 
 		return {
 			username,
