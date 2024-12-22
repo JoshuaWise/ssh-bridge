@@ -1,6 +1,6 @@
 'use strict';
 const { EventEmitter } = require('node:events');
-const FrameParser = require('../frame-parser');
+const FrameParser = require('../lib/frame-parser');
 const decode = require('./decode');
 const pool = require('./pool');
 
@@ -50,7 +50,7 @@ module.exports = (signal, socket) => {
 							state = CONNECTING;
 							ssh = pool.reuse(params, emitter);
 						} else {
-							exception('malformed REUSE frame');
+							exception('malformed REUSE parameters');
 						}
 					} else {
 						exception('unexpected REUSE frame');
@@ -64,7 +64,7 @@ module.exports = (signal, socket) => {
 							state = CONNECTING;
 							ssh = pool.connect(params, emitter);
 						} else {
-							exception('malformed CONNECT frame');
+							exception('malformed CONNECT parameters');
 						}
 					} else {
 						exception('unexpected CONNECT frame');
@@ -77,7 +77,7 @@ module.exports = (signal, socket) => {
 						if (responses) {
 							ssh.challengeResponse(responses);
 						} else {
-							exception('malformed CHALLENGE_RESPONSE frame');
+							exception('malformed CHALLENGE_RESPONSE parameters');
 						}
 					} else if (state !== INITIAL && state !== READY) {
 						exception('unexpected CHALLENGE_RESPONSE frame');
@@ -92,7 +92,7 @@ module.exports = (signal, socket) => {
 							state = EXECUTING;
 							ssh.exec(command, frame.type === FrameParser.PTY_COMMAND);
 						} else {
-							exception('malformed *_COMMAND frame');
+							exception('malformed command string');
 						}
 					} else {
 						exception('unexpected *_COMMAND frame');

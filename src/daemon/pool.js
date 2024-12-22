@@ -133,6 +133,7 @@ exports.connect = ({ username, hostname, port, fingerprint, reusable, ...auth },
 				if (error != null) {
 					queuedInputData = [];
 					queuedInputEnd = false;
+					reusable = false;
 					emitter.emit('result', { error: toErrorMessage(error) });
 					return;
 				}
@@ -151,6 +152,7 @@ exports.connect = ({ username, hostname, port, fingerprint, reusable, ...auth },
 				channel.on('close', (code, signal) => {
 					liveChannel = null;
 					if (error != null) {
+						reusable = false;
 						emitter.emit('result', { error: toErrorMessage(error) });
 					} else {
 						emitter.emit('result', { code, signal });
