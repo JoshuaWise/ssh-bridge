@@ -138,7 +138,7 @@ exports.connect = ({ username, hostname, port, fingerprint, reusable, ...auth },
 				if (error != null) {
 					queuedInputData = [];
 					queuedInputEnd = false;
-					reusable = false;
+					reusable = false; // Don't reuse connections that have SSH-level errors
 					emitter.emit('result', { error: toErrorMessage(error) });
 					return;
 				}
@@ -157,7 +157,7 @@ exports.connect = ({ username, hostname, port, fingerprint, reusable, ...auth },
 				channel.on('close', (code, signal) => {
 					liveChannel = null;
 					if (error != null) {
-						reusable = false;
+						reusable = false; // Don't reuse connections that have SSH-level errors
 						emitter.emit('result', { error: toErrorMessage(error) });
 					} else {
 						emitter.emit('result', { code, signal });
