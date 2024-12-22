@@ -8,7 +8,12 @@ const handler = require('./handler');
 const pool = require('./pool');
 
 /*
-	TODO: write comment
+	This the ssh-bridge daemon. Only one such daemon can be running at a time,
+	so we use OS-level file locking to ensure that. The daemon starts a Unix
+	domain socket server (or a named pipe server on Windows), allowing local
+	clients to run SSH commands while using the daemon as a middle-man. The
+	purpose of the daemon is to cache SSH credentials and allow clients to reuse
+	SSH connections, improving the user experience for SSH clients.
  */
 
 async function main() {
@@ -29,6 +34,7 @@ async function main() {
 		clearFile(socketPath); // There could be an abandoned Unix domain socket file
 	}
 
+	// Start the local server.
 	const server = net.createServer();
 	const abortController = new AbortController();
 	await new Promise((resolve, reject) => {
@@ -50,15 +56,18 @@ async function main() {
 	// Gracefully shut down the server before exiting.
 	console.warn('Shutting down...');
 	await new Promise((resolve) => {
-		server.close(resolve);
-		abortController.abort();
-		pool.clear();
-		lock.unlock();
+		server.close(resolve); // Stop accepting new clients
+		abortController.abort(); // Gracefully shut down existing clients
+		pool.clear(); // Close all cached SSH connections
+		lock.unlock(); // Allow other daemons to start up
 	});
 
 	console.warn('Shutdown complete.');
 }
 
+// By default, the config directory will be "~/.ssh-bridge", but if the first
+// command-line argument is provided, the config directory will instead be
+// "<arg>/ssh-bridge". The config directory's parent directory MUST exist.
 function getConfigDir() {
 	let configDir;
 	let hidden = false;

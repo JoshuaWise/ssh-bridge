@@ -2,7 +2,13 @@
 const assert = require('node:assert');
 
 /*
-	TODO: write comment
+	The daemon and its clients communicate over a very simple protocol
+	implemented over TCP. They send messages ("frames") to each other, where
+	each frame starts with a 5 byte header. The first 4 bytes are a 32-bit
+	unsigned integer (big-endian), indicating how many bytes are in the frame
+	data (after the frame header). The 5th byte is an 8-bit unsigned integer
+	indicating the type of the frame (which determines how the frame data is
+	interpreted).
  */
 
 module.exports = class FrameParser {

@@ -9,7 +9,7 @@
     "url": "git://github.com/WiseLibs/ssh-bridge.git"
   },
   "license": "MIT",
-  "main": "./src/index.js",
+  "main": "./src/lib/index.js",
   "bin": {
     "ssh-bridge-exec": "./src/cli/index.js"
   },

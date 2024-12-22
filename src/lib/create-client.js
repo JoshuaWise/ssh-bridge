@@ -3,7 +3,10 @@ const { Readable, Writable } = require('node:stream');
 const FrameParser = require('./frame-parser');
 
 /*
-	TODO: write comment
+	This function creates and returns a fully-functioning ssh-bridge client,
+	given a raw TCP socket that's connected to the ssh-bridge daemon. The client
+	is basically state machine that handles events coming from the daemon, as
+	well as methods invoked by the user of the client.
  */
 
 const INITIAL = Symbol();
@@ -117,6 +120,9 @@ module.exports = (socket) => {
 		}
 	});
 
+	// When an unrecoverable situation occurs, the client enters an ERRORED
+	// state. This might happen when the client is idle, so we save the error,
+	// enabling us to propagate it whenever the client is used again.
 	function exception(message, type, { reason, cause } = {}) {
 		if (state !== ERRORED) {
 			state = ERRORED;
@@ -130,6 +136,10 @@ module.exports = (socket) => {
 				error.cause = cause;
 			}
 
+			// If there's a pending operation, we reject it with the error.
+			// Otherwise, we set hasNewException, which indicates that the next
+			// attempted operation should be rejected with the error. This makes
+			// error handling much less susceptible to racy nondeterminism.
 			if (resolver) {
 				resolver.reject(error);
 				resolver = undefined;
@@ -178,6 +188,8 @@ module.exports = (socket) => {
 		return obj;
 	}
 
+	// This utility function is used to guard the client's methods against being
+	// used in unexpected states. It also propagates previous exceptions.
 	function expectState(expectedState) {
 		if (state === ERRORED) {
 			if (hasNewException) {
@@ -239,6 +251,7 @@ module.exports = (socket) => {
 					sendRaw(FrameParser.STDIN, Buffer.alloc(0), undefined, cb);
 				},
 			});
+
 			const stdout = new Readable({ read() {} });
 			const stderr = new Readable({ read() {} });
 			const result = new Promise((resolve) => {
@@ -260,6 +273,7 @@ module.exports = (socket) => {
 				stderr.destroy(err);
 			});
 
+			// Attach error handlers so they don't trigger uncaught exceptions.
 			stdin.on('error', () => {});
 			stdout.on('error', () => {});
 			stderr.on('error', () => {});

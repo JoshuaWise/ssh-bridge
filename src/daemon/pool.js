@@ -2,6 +2,11 @@
 const { EventEmitter } = require('node:events');
 const { Client } = require('ssh2');
 
+/*
+	This module maintains a pool of cached SSH connections and credentials, and
+	provides all the necessary interfaces needed to interact with the SSH layer.
+ */
+
 const CONNECTIONS_TTL = 1000 * 60 * 60 * 12; // 12 hours
 const cachedConnections = new Map();
 const cachedCredentials = new Map();
@@ -82,7 +87,7 @@ exports.connect = ({ username, hostname, port, fingerprint, reusable, ...auth },
 	});
 
 	let done = false;
-	// TODO: make sure the SSH connection is always closed after the "error" event (beore or after "connected")
+	// TODO: make sure the SSH connection is always closed after the "error" event (before or after "connected")
 	connection.on('error', (err) => {
 		if (done) return;
 		done = true;

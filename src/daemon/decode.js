@@ -3,6 +3,11 @@ const assert = require('node:assert');
 
 const ValidationError = Symbol();
 
+/*
+	These functions are used to parse and validate the various data frames that
+	are sent by the client and received by the daemon/server.
+ */
+
 exports.reuseParams = (data) => {
 	assert(Buffer.isBuffer(data));
 	try {

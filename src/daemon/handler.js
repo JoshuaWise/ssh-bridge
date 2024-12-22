@@ -5,7 +5,9 @@ const decode = require('./decode');
 const pool = require('./pool');
 
 /*
-	TODO: write comment
+	Each client that connects to the daemon/server is handled by this module.
+	The logic here is basically a state machine that handles events coming from
+	the client as well as the SSH pool layer.
  */
 
 const INITIAL = Symbol();
