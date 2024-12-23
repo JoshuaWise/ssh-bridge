@@ -29,7 +29,7 @@ exports.connect = async (configDir) => {
 
 	let socket = await connect(socketPath);
 	if (!socket) {
-		await spawnDaemon();
+		await spawnDaemon(configDir);
 
 		const timeout = process.hrtime.bigint() + BigInt(POLL_TIMEOUT_MS * 1e6);
 		while (!(socket = await connect(socketPath))) {
