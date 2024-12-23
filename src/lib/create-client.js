@@ -152,7 +152,7 @@ module.exports = (socket) => {
 	}
 
 	function protocolException(reason) {
-		exception('Daemon protocol violation', 'PROTOCOL', { reason });
+		exception('Daemon protocol violation', 'PROTOCOL_ERROR', { reason });
 	}
 
 	function handleChallenge(challengeHandler, challenge, connectionAttemptNumber) {

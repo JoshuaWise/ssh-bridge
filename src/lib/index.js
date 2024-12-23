@@ -34,9 +34,7 @@ exports.connect = async (configDir) => {
 		const timeout = process.hrtime.bigint() + BigInt(POLL_TIMEOUT_MS * 1e6);
 		while (!(socket = await connect(socketPath))) {
 			if (process.hrtime.bigint() >= timeout) {
-				const err = new Error('Unable to connect to ssh-bridge daemon');
-				err.type = 'NO_DAEMON';
-				throw err;
+				throw new Error('Unable to connect to the ssh-bridge daemon');
 			}
 
 			await sleep(POLL_SLEEP_MS);
