@@ -17,7 +17,11 @@ const POLL_SLEEP_MS = 10;
 	If necessary, a new daemon will be spawned.
  */
 
-exports.connect = async (configDir) => {
+exports.connect = async (configDir, daemonProcessTitle = '') => {
+	if (typeof daemonProcessTitle !== 'string') {
+		throw new TypeError('Expected daemonProcessTitle to be a string, if provided');
+	}
+
 	configDir = await initConfigDir(configDir);
 
 	let socketPath;
@@ -29,7 +33,7 @@ exports.connect = async (configDir) => {
 
 	let socket = await connect(socketPath);
 	if (!socket) {
-		await spawnDaemon(configDir);
+		await spawnDaemon(configDir, daemonProcessTitle);
 
 		const timeout = process.hrtime.bigint() + BigInt(POLL_TIMEOUT_MS * 1e6);
 		while (!(socket = await connect(socketPath))) {
@@ -73,7 +77,7 @@ async function initConfigDir(configDir) {
 // Whenever we spawn the daemon, we redirect its stdout and stderr to a log file
 // within the configuration directory. To prevent the daemon from truncating
 // previous logs, we pass it an open file descriptor in append-only mode.
-async function spawnDaemon(configDir) {
+async function spawnDaemon(configDir, daemonProcessTitle) {
 	const fd = await new Promise((resolve, reject) => {
 		fs.open(path.join(configDir, 'log'), 'a', 0o600, (err, fd) => {
 			if (err != null) reject(err);
@@ -83,7 +87,7 @@ async function spawnDaemon(configDir) {
 
 	try {
 		await new Promise((resolve, reject) => {
-			const child = spawn(NODE, [DAEMON, configDir], {
+			const child = spawn(NODE, [DAEMON, configDir, daemonProcessTitle], {
 				cwd: os.homedir(),
 				stdio: ['ignore', fd, fd],
 				detached: true,

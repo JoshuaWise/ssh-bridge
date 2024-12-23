@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
-process.title = 'ssh-bridge';
+process.title = process.argv[3] || 'ssh-bridge';
 process.stdout.on('error', supressEPIPE);
 process.stderr.on('error', supressEPIPE);
 require('./main');
