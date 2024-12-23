@@ -10,9 +10,6 @@
   },
   "license": "MIT",
   "main": "./src/lib/index.js",
-  "bin": {
-    "ssh-bridge-exec": "./src/cli/index.js"
-  },
   "scripts": {
     "test": "mocha --slow=200 --timeout=5000"
   },
@@ -20,7 +17,6 @@
     "src/**"
   ],
   "dependencies": {
-    "commander": "^11.0.0",
     "fs-ext": "^2.0.0",
     "ssh2": "^1.16.0"
   },
