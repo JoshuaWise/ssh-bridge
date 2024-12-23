@@ -1,5 +1,4 @@
 'use strict';
-const os = require('node:os');
 const fs = require('node:fs');
 const net = require('node:net');
 const path = require('node:path');
@@ -18,8 +17,6 @@ const pool = require('./pool');
 
 async function main() {
 	const configDir = getConfigDir();
-	initConfigDir(configDir);
-
 	const lockPath = path.join(configDir, 'lock');
 	const lock = acquireLock(lockPath);
 	if (!lock) {
@@ -65,39 +62,18 @@ async function main() {
 	console.warn('Shutdown complete.');
 }
 
-// By default, the config directory will be "~/.ssh-bridge", but if the first
-// command-line argument is provided, the config directory will instead be
-// "<arg>/ssh-bridge". The config directory's parent directory MUST exist.
 function getConfigDir() {
-	let configDir;
-	let hidden = false;
-	if (process.argv.length < 3) {
-		configDir = os.homedir();
-		hidden = true;
-	} else if (process.argv.length === 3) {
-		configDir = process.argv[2];
-	} else {
-		throw new RangeError('Unexpected command line arguments');
-	}
+	const configDir = process.argv[2];
 	if (!configDir) {
-		throw new TypeError('Invalid configuration directory');
+		throw new TypeError('No configuration directory was specified');
 	}
-
-	configDir = path.resolve(configDir);
+	if (!path.isAbsolute(configDir)) {
+		throw new TypeError('Configuration directory must be an absolute path');
+	}
 	if (!fs.statSync(configDir, { throwIfNoEntry: false })?.isDirectory()) {
 		throw new TypeError('Configuration directory does not exist');
 	}
-
-	return path.join(configDir, `${hidden ? '.' : ''}ssh-bridge`);
-}
-
-function initConfigDir(configDir) {
-	try {
-		fs.mkdirSync(configDir, { mode: 0o700 });
-	} catch (err) {
-		if (err.code === 'EEXIST') return;
-		throw err;
-	}
+	return configDir;
 }
 
 function acquireLock(lockPath) {
