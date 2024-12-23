@@ -36,6 +36,7 @@ module.exports = (signal, socket) => {
 	socket.on('close', () => {
 		ssh && ssh.relinquish(state === READY);
 		ssh = null;
+		state = ERRORED;
 		frameParser.clear();
 		signal.removeEventListener('abort', onAbort);
 	});
