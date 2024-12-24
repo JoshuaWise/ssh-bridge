@@ -11,7 +11,7 @@
   "license": "MIT",
   "main": "./src/lib/index.js",
   "scripts": {
-    "test": "mocha --slow=200 --timeout=5000"
+    "test": "mocha --slow=500 --timeout=5000 --require=test/tools/harness"
   },
   "files": [
     "src/**"
