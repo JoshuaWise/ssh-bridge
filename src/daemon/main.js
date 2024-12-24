@@ -80,6 +80,7 @@ function acquireLock(lockPath) {
 	const fd = fs.openSync(lockPath, 'w', 0o600);
 	try {
 		flockSync(fd, 'exnb');
+		fs.writeFileSync(fd, `${process.pid}\n`);
 	} catch (err) {
 		fs.closeSync(fd);
 		if (err.code === 'EAGAIN') return null;
