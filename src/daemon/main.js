@@ -77,13 +77,17 @@ function getConfigDir() {
 }
 
 function acquireLock(lockPath) {
-	const fd = fs.openSync(lockPath, 'w', 0o600);
+	let locked = false;
+	const flags = fs.constants.O_RDWR | fs.constants.O_CREAT;
+	const fd = fs.openSync(lockPath, flags, 0o600);
 	try {
 		flockSync(fd, 'exnb');
+		locked = true;
+		fs.ftruncateSync(fd);
 		fs.writeFileSync(fd, `${process.pid}\n`);
 	} catch (err) {
 		fs.closeSync(fd);
-		if (err.code === 'EAGAIN') return null;
+		if (!locked && err.code === 'EAGAIN') return null;
 		throw err;
 	}
 
@@ -91,6 +95,7 @@ function acquireLock(lockPath) {
 	return {
 		unlock() {
 			if (!closed) {
+				fs.ftruncateSync(fd);
 				flockSync(fd, 'un');
 				fs.closeSync(fd);
 				closed = true;
