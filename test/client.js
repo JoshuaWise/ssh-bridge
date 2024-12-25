@@ -560,6 +560,56 @@ describe('client', function () {
 			}
 		});
 
+		it('should run multiple commands on a reused connection', async function () {
+			const firstClient = await connect(configDir);
+			try {
+				await firstClient.connect({
+					username: 'testuser_exec_reuse',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+					reusable: true,
+				});
+			} finally {
+				await firstClient.close();
+			}
+
+			const secondClient = await connect(configDir);
+			try {
+				const result = await secondClient.reuse({
+					username: 'testuser_exec_reuse',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+				});
+
+				expect(result.success).to.be.true;
+				expect(result.result).to.have.property('banner').that.equals('hello!\r\n');
+				expect(result.result).to.have.property('fingerprint').that.is.a('string');
+				expect(result.result.fingerprint).to.match(/^[a-zA-Z0-9+/]+=*$/);
+
+				{
+					const { stdout, result } = secondClient.exec('echo "Hello, World!"');
+					const { code, signal } = await result;
+					const stdoutString = (await streamToBuffer(stdout)).toString();
+
+					expect(code).to.equal(0);
+					expect(signal).to.be.undefined;
+					expect(stdoutString).to.equal('Hello, World!\n');
+				}
+				{
+					const { stderr, result } = secondClient.exec('node -e \'console.warn("Hello, Friend!"); process.exit(2);\'');
+					const { code, signal } = await result;
+					const stderrString = (await streamToBuffer(stderr)).toString();
+
+					expect(code).to.equal(2);
+					expect(signal).to.be.undefined;
+					expect(stderrString).to.equal('Hello, Friend!\n');
+				}
+			} finally {
+				await secondClient.close();
+			}
+		});
+
 		it('should run the command with an allocated PTY, if requested');
 
 		it('should not allow exec() when the client is in an errored state', async function () {
@@ -599,6 +649,97 @@ describe('client', function () {
 		});
 	});
 
+	describe('close()', function () {
+		const configDir = harness.getConfigDir('close-tests');
+
+		it('should cancel existing operations with CLOSED error', async function () {
+			const client = await connect(configDir);
+			try {
+				await client.connect({
+					username: 'testuser',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				const operation = client.exec('sleep 5');
+				expect(client.closed).to.be.false;
+
+				const closePromise = client.close();
+				expect(client.closed).to.be.true;
+
+				await expectReject(operation.result, Error, 'Client was closed manually');
+				await closePromise;
+			} finally {
+				await client.close();
+			}
+		});
+
+		it('should wait until the socket is fully closed before returning', async function () {
+			const client = await connect(configDir);
+			try {
+				await client.connect({
+					username: 'testuser',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				const events = [];
+				const closePromise = client.close();
+
+				await Promise.all([
+					closePromise.then(() => {
+						events.push('close resolved');
+					}),
+					new Promise((resolve) => {
+						process.nextTick(() => {
+							events.push('next tick');
+							resolve();
+						});
+					}),
+				]);
+
+				expect(events).to.deep.equal([
+					'next tick',
+					'close resolved',
+				]);
+			} finally {
+				await client.close();
+			}
+		});
+
+		it('should return right away if the socket is already fully closed', async function () {
+			const client = await connect(configDir);
+			await client.connect({
+				username: 'testuser',
+				hostname: '127.0.0.1',
+				port: harness.getSSHPort(),
+				password: 'correct_password',
+			});
+			await client.close();
+
+			const events = [];
+			const closePromise = client.close();
+
+			await Promise.all([
+				closePromise.then(() => {
+					events.push('close resolved');
+				}),
+				new Promise((resolve) => {
+					process.nextTick(() => {
+						events.push('next tick');
+						resolve();
+					});
+				}),
+			]);
+
+			expect(events).to.deep.equal([
+				'close resolved',
+				'next tick',
+			]);
+		});
+	});
 });
 
 async function expectReject(promise, ...args) {
