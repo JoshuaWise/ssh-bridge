@@ -1,6 +1,6 @@
 'use strict';
 const { expect } = require('chai');
-const { connect } = require('../src/lib/index');
+const sshBridge = require('../src/lib/index');
 const harness = require('./tools/harness');
 
 describe('client', function () {
@@ -8,7 +8,7 @@ describe('client', function () {
 		const configDir = harness.getConfigDir('connect-tests');
 
 		it('should successfully authenticate with password auth', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			try {
 				const result = await client.connect({
 					username: 'testuser_password',
@@ -27,7 +27,7 @@ describe('client', function () {
 		});
 
 		it('should successfully authenticate with unencrypted public key', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			try {
 				const result = await client.connect({
 					username: 'testuser_pubkey',
@@ -46,7 +46,7 @@ describe('client', function () {
 		});
 
 		it('should successfully authenticate with encrypted public key', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			try {
 				const result = await client.connect({
 					username: 'testuser_pubkey_passphrase',
@@ -66,7 +66,7 @@ describe('client', function () {
 		});
 
 		it('should successfully authenticate with keyboard-interactive auth', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			try {
 				const challenges = [];
 				const result = await client.connect({
@@ -103,7 +103,7 @@ describe('client', function () {
 		});
 
 		it('should successfully authenticate with multiple auth types', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			try {
 				const result = await client.connect({
 					username: 'testuser_mixed_auth_types',
@@ -124,7 +124,7 @@ describe('client', function () {
 		});
 
 		it('should fail to authenticate with wrong password', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			try {
 				const result = await client.connect({
 					username: 'testuser_password_2',
@@ -141,7 +141,7 @@ describe('client', function () {
 		});
 
 		it('should fail to authenticate with missing public key passphrase', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			try {
 				const result = await client.connect({
 					username: 'testuser_pubkey_passphrase_2',
@@ -158,7 +158,7 @@ describe('client', function () {
 		});
 
 		it('should fail to authenticate with wrong public key passphrase', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			try {
 				const result = await client.connect({
 					username: 'testuser_pubkey_passphrase_3',
@@ -176,7 +176,7 @@ describe('client', function () {
 		});
 
 		it('should reuse credentials when no credentials are provided', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			try {
 				const result = await client.connect({
 					username: 'testuser_cached_credentials',
@@ -187,7 +187,7 @@ describe('client', function () {
 
 				expect(result.success).to.be.true;
 
-				const secondClient = await connect(configDir);
+				const secondClient = await sshBridge(configDir);
 				try {
 					const secondResult = await secondClient.connect({
 						username: 'testuser_cached_credentials',
@@ -205,7 +205,7 @@ describe('client', function () {
 		});
 
 		it('should not reuse credentials when interactive-keyboard auth was used', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			try {
 				const result = await client.connect({
 					username: 'testuser_mixed_credentials',
@@ -225,7 +225,7 @@ describe('client', function () {
 
 				expect(result.success).to.be.true;
 
-				const secondClient = await connect(configDir);
+				const secondClient = await sshBridge(configDir);
 				try {
 					const secondResult = await secondClient.connect({
 						username: 'testuser_mixed_credentials',
@@ -244,7 +244,7 @@ describe('client', function () {
 		});
 
 		it('should fail when trying to reuse credentials with no cache', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			try {
 				const result = await client.connect({
 					username: 'testuser_nocached_credentials',
@@ -260,7 +260,7 @@ describe('client', function () {
 		});
 
 		it('should fail when the provided fingerprint does not match', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			try {
 				const result = await client.connect({
 					username: 'testuser_bad_fingerprint',
@@ -278,7 +278,7 @@ describe('client', function () {
 		});
 
 		it('should not allow connect() when the client is in an errored state', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			await client.close();
 
 			await expectReject(client.connect({
@@ -290,7 +290,7 @@ describe('client', function () {
 		});
 
 		it('should not allow connect() in an invalid state', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			try {
 				// Call connect() to transition the client out of its INITIAL state.
 				await client.connect({
@@ -317,7 +317,7 @@ describe('client', function () {
 		const configDir = harness.getConfigDir('reuse-tests');
 
 		it('should return banner and fingerprint on successful reuse', async function () {
-			const firstClient = await connect(configDir);
+			const firstClient = await sshBridge(configDir);
 			try {
 				await firstClient.connect({
 					username: 'testuser_reuse',
@@ -330,7 +330,7 @@ describe('client', function () {
 				await firstClient.close();
 			}
 
-			const secondClient = await connect(configDir);
+			const secondClient = await sshBridge(configDir);
 			try {
 				const result = await secondClient.reuse({
 					username: 'testuser_reuse',
@@ -348,7 +348,7 @@ describe('client', function () {
 		});
 
 		it('should not reuse connections that were not declared reusable', async function () {
-			const firstClient = await connect(configDir);
+			const firstClient = await sshBridge(configDir);
 			try {
 				await firstClient.connect({
 					username: 'testuser_no_reuse',
@@ -360,7 +360,7 @@ describe('client', function () {
 				await firstClient.close();
 			}
 
-			const secondClient = await connect(configDir);
+			const secondClient = await sshBridge(configDir);
 			try {
 				const result = await secondClient.reuse({
 					username: 'testuser_no_reuse',
@@ -375,7 +375,7 @@ describe('client', function () {
 		});
 
 		it('should return a reason string on unsuccessful reuse', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			try {
 				const result = await client.reuse({
 					username: 'testuser_nonexistent',
@@ -391,7 +391,7 @@ describe('client', function () {
 		});
 
 		it('should not allow reuse() when the client is in an errored state', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			await client.close();
 
 			await expectReject(client.reuse({
@@ -402,7 +402,7 @@ describe('client', function () {
 		});
 
 		it('should not allow reuse() in an invalid state', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			try {
 				// Call connect() to transition the client out of its INITIAL state.
 				await client.connect({
@@ -428,7 +428,7 @@ describe('client', function () {
 		const configDir = harness.getConfigDir('exec-tests');
 
 		it('should run a command and return its stdout and exit code', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			try {
 				await client.connect({
 					username: 'testuser',
@@ -450,7 +450,7 @@ describe('client', function () {
 		});
 
 		it('should run a command and return its stderr and exit code', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			try {
 				await client.connect({
 					username: 'testuser',
@@ -474,7 +474,7 @@ describe('client', function () {
 		});
 
 		it('should run a command and return the signal that terminated it', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			try {
 				await client.connect({
 					username: 'testuser',
@@ -494,7 +494,7 @@ describe('client', function () {
 		});
 
 		it('should write to stdin while running a command', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			try {
 				await client.connect({
 					username: 'testuser',
@@ -520,7 +520,7 @@ describe('client', function () {
 		});
 
 		it('should write to stdin while running a command (interactively)', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			try {
 				await client.connect({
 					username: 'testuser',
@@ -561,7 +561,7 @@ describe('client', function () {
 		});
 
 		it('should run multiple commands on a reused connection', async function () {
-			const firstClient = await connect(configDir);
+			const firstClient = await sshBridge(configDir);
 			try {
 				await firstClient.connect({
 					username: 'testuser_exec_reuse',
@@ -574,7 +574,7 @@ describe('client', function () {
 				await firstClient.close();
 			}
 
-			const secondClient = await connect(configDir);
+			const secondClient = await sshBridge(configDir);
 			try {
 				const result = await secondClient.reuse({
 					username: 'testuser_exec_reuse',
@@ -613,7 +613,7 @@ describe('client', function () {
 		it('should run the command with an allocated PTY, if requested');
 
 		it('should not allow exec() when the client is in an errored state', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			await client.close();
 
 			const { stdout, stderr, result } = client.exec('echo "Hello, World!"');
@@ -630,7 +630,7 @@ describe('client', function () {
 		});
 
 		it('should not allow exec() in an invalid state', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			try {
 				const { stdout, stderr, result } = client.exec('echo "Hello, World!"');
 				let stdoutErr;
@@ -653,7 +653,7 @@ describe('client', function () {
 		const configDir = harness.getConfigDir('close-tests');
 
 		it('should cancel existing operations with CLOSED error', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			try {
 				await client.connect({
 					username: 'testuser',
@@ -676,7 +676,7 @@ describe('client', function () {
 		});
 
 		it('should wait until the socket is fully closed before returning', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			try {
 				await client.connect({
 					username: 'testuser',
@@ -710,7 +710,7 @@ describe('client', function () {
 		});
 
 		it('should return right away if the socket is already fully closed', async function () {
-			const client = await connect(configDir);
+			const client = await sshBridge(configDir);
 			await client.connect({
 				username: 'testuser',
 				hostname: '127.0.0.1',

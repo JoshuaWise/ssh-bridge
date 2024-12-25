@@ -17,7 +17,7 @@ const POLL_SLEEP_MS = 10;
 	If necessary, a new daemon will be spawned.
  */
 
-exports.connect = async (configDir, daemonProcessTitle = '') => {
+module.exports = async (configDir, daemonProcessTitle = '') => {
 	if (typeof daemonProcessTitle !== 'string') {
 		throw new TypeError('Expected daemonProcessTitle to be a string, if provided');
 	}

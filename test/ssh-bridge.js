@@ -4,22 +4,22 @@ const net = require('node:net');
 const path = require('node:path');
 const { execSync } = require('node:child_process');
 const { expect } = require('chai');
-const { connect } = require('../src/lib/index');
+const sshBridge = require('../src/lib/index');
 const harness = require('./tools/harness');
 
-describe('connect()', function () {
+describe('sshBridge()', function () {
     it('should throw an error if configDir is not a string', async function () {
-        await expectReject(connect(123), TypeError, 'Expected configDir to be a string');
+        await expectReject(sshBridge(123), TypeError, 'Expected configDir to be a string');
     });
 
     it('should throw an error if configDir cannot be created', async function () {
         const invalidConfigDir = '/invalid/path/to/config';
-        await expectReject(connect(invalidConfigDir), Error, /no such file or directory/);
+        await expectReject(sshBridge(invalidConfigDir), Error, /no such file or directory/);
     });
 
     it('should throw an error if daemonProcessTitle is not a string', async function () {
         const configDir = harness.getConfigDir('invalid-title-test');
-        await expectReject(connect(configDir, 123), TypeError, 'Expected daemonProcessTitle to be a string, if provided');
+        await expectReject(sshBridge(configDir, 123), TypeError, 'Expected daemonProcessTitle to be a string, if provided');
     });
 
     it('should spawn a new daemon if one does not already exist', async function () {
@@ -38,7 +38,7 @@ describe('connect()', function () {
         expect(fs.existsSync(daemonSocket)).to.be.false;
         expect(fs.existsSync(lockPath)).to.be.false;
 
-        const client = await connect(configDir);
+        const client = await sshBridge(configDir);
         try {
             // Ensure the daemon is running.
             expect(await isDaemonRunning()).to.be.true;
@@ -53,7 +53,7 @@ describe('connect()', function () {
         const configDir = harness.getConfigDir('reuse-daemon-test');
 
         // Spawn the first client (this starts the daemon).
-        const firstClient = await connect(configDir);
+        const firstClient = await sshBridge(configDir);
         try {
             // Record the daemon's PID.
             const lockPath = path.join(configDir, 'lock');
@@ -61,7 +61,7 @@ describe('connect()', function () {
             expect(pid).to.match(/^[0-9]+$/);
 
             // Spawn a second client.
-            const secondClient = await connect(configDir);
+            const secondClient = await sshBridge(configDir);
             try {
                 // Verify the daemon PID has not changed.
                 const newPid = fs.readFileSync(lockPath, 'utf8').trim();
@@ -80,7 +80,7 @@ describe('connect()', function () {
 
         expect(fs.existsSync(logPath)).to.be.false;
 
-        const client = await connect(configDir);
+        const client = await sshBridge(configDir);
         try {
             expect(fs.existsSync(logPath)).to.be.true;
 
@@ -97,7 +97,7 @@ describe('connect()', function () {
         const logPath = path.join(configDir, 'log');
 
         // Spawn the first daemon by creating a client.
-        const firstClient = await connect(configDir);
+        const firstClient = await sshBridge(configDir);
         await firstClient.close();
 
         // Kill the first daemon.
@@ -120,7 +120,7 @@ describe('connect()', function () {
         const logsAfterFirstDaemon = fs.readFileSync(logPath, 'utf8');
 
         // Spawn a second daemon by creating a new client.
-        const secondClient = await connect(configDir);
+        const secondClient = await sshBridge(configDir);
         await secondClient.close();
 
         // Kill the second daemon.
@@ -153,7 +153,7 @@ describe('connect()', function () {
         // Ensure the directory does not exist.
         expect(fs.existsSync(configDir)).to.be.false;
 
-        const client = await connect(configDir);
+        const client = await sshBridge(configDir);
         try {
             // Verify the directory was created.
             expect(fs.existsSync(configDir)).to.be.true;
@@ -167,7 +167,7 @@ describe('connect()', function () {
         const configDir = harness.getConfigDir('existing-config-dir-test');
         fs.mkdirSync(configDir, { recursive: true });
 
-        const client = await connect(configDir);
+        const client = await sshBridge(configDir);
         try {
             // Verify no errors were thrown and the directory still exists.
             expect(fs.existsSync(configDir)).to.be.true;
@@ -181,7 +181,7 @@ describe('connect()', function () {
         const configDir = harness.getConfigDir('custom-title-test');
         const customTitle = 'ssh-bridge-custom-title';
 
-        const client = await connect(configDir, customTitle);
+        const client = await sshBridge(configDir, customTitle);
         try {
             const lockPath = path.join(configDir, 'lock');
             const pid = fs.readFileSync(lockPath, 'utf8').trim();
