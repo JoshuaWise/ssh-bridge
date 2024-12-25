@@ -18,9 +18,9 @@ describe('client', function () {
 				});
 
 				expect(result.success).to.be.true;
-				expect(result.result).to.have.property('banner').that.equals('hello!\r\n');
-				expect(result.result).to.have.property('fingerprint').that.is.a('string');
-				expect(result.result.fingerprint).to.match(/^[a-zA-Z0-9+/]+=*$/);
+				expect(result.banner).to.equal('hello!\r\n');
+				expect(result.fingerprint).to.be.a('string');
+				expect(result.fingerprint).to.match(/^[a-zA-Z0-9+/]+=*$/);
 			} finally {
 				await client.close();
 			}
@@ -37,9 +37,9 @@ describe('client', function () {
 				});
 
 				expect(result.success).to.be.true;
-				expect(result.result).to.have.property('banner').that.equals('hello!\r\n');
-				expect(result.result).to.have.property('fingerprint').that.is.a('string');
-				expect(result.result.fingerprint).to.match(/^[a-zA-Z0-9+/]+=*$/);
+				expect(result.banner).to.equal('hello!\r\n');
+				expect(result.fingerprint).to.be.a('string');
+				expect(result.fingerprint).to.match(/^[a-zA-Z0-9+/]+=*$/);
 			} finally {
 				await client.close();
 			}
@@ -57,9 +57,9 @@ describe('client', function () {
 				});
 
 				expect(result.success).to.be.true;
-				expect(result.result).to.have.property('banner').that.equals('hello!\r\n');
-				expect(result.result).to.have.property('fingerprint').that.is.a('string');
-				expect(result.result.fingerprint).to.match(/^[a-zA-Z0-9+/]+=*$/);
+				expect(result.banner).to.equal('hello!\r\n');
+				expect(result.fingerprint).to.be.a('string');
+				expect(result.fingerprint).to.match(/^[a-zA-Z0-9+/]+=*$/);
 			} finally {
 				await client.close();
 			}
@@ -85,9 +85,9 @@ describe('client', function () {
 				});
 
 				expect(result.success).to.be.true;
-				expect(result.result).to.have.property('banner').that.equals('hello!\r\n');
-				expect(result.result).to.have.property('fingerprint').that.is.a('string');
-				expect(result.result.fingerprint).to.match(/^[a-zA-Z0-9+/]+=*$/);
+				expect(result.banner).to.equal('hello!\r\n');
+				expect(result.fingerprint).to.be.a('string');
+				expect(result.fingerprint).to.match(/^[a-zA-Z0-9+/]+=*$/);
 				expect(challenges).to.deep.equal([
 					[
 						{ prompt: 'favorite color?', echo: true },
@@ -115,9 +115,9 @@ describe('client', function () {
 				});
 
 				expect(result.success).to.be.true;
-				expect(result.result).to.have.property('banner').that.equals('hello!\r\n');
-				expect(result.result).to.have.property('fingerprint').that.is.a('string');
-				expect(result.result.fingerprint).to.match(/^[a-zA-Z0-9+/]+=*$/);
+				expect(result.banner).to.equal('hello!\r\n');
+				expect(result.fingerprint).to.be.a('string');
+				expect(result.fingerprint).to.match(/^[a-zA-Z0-9+/]+=*$/);
 			} finally {
 				await client.close();
 			}
@@ -134,7 +134,7 @@ describe('client', function () {
 				});
 
 				expect(result.success).to.be.false;
-				expect(result.result).to.have.property('reason').that.equals('authentication denied');
+				expect(result.reason).to.equal('authentication denied');
 			} finally {
 				await client.close();
 			}
@@ -151,7 +151,7 @@ describe('client', function () {
 				});
 
 				expect(result.success).to.be.false;
-				expect(result.result).to.have.property('reason').that.equals('authentication denied');
+				expect(result.reason).to.equal('authentication denied');
 			} finally {
 				await client.close();
 			}
@@ -169,7 +169,7 @@ describe('client', function () {
 				});
 
 				expect(result.success).to.be.false;
-				expect(result.result).to.have.property('reason').that.equals('authentication denied');
+				expect(result.reason).to.equal('authentication denied');
 			} finally {
 				await client.close();
 			}
@@ -234,7 +234,7 @@ describe('client', function () {
 					});
 
 					expect(secondResult.success).to.be.false;
-					expect(secondResult.result.reason).to.include('no credentials provided');
+					expect(secondResult.reason).to.equal('no credentials provided');
 				} finally {
 					await secondClient.close();
 				}
@@ -253,7 +253,7 @@ describe('client', function () {
 				});
 
 				expect(result.success).to.be.false;
-				expect(result.result.reason).to.include('no credentials provided');
+				expect(result.reason).to.equal('no credentials provided');
 			} finally {
 				await client.close();
 			}
@@ -271,7 +271,7 @@ describe('client', function () {
 				});
 
 				expect(result.success).to.be.false;
-				expect(result.result.reason).to.include('host fingerprint has changed');
+				expect(result.reason).to.include('host fingerprint has changed');
 			} finally {
 				await client.close();
 			}
@@ -339,9 +339,9 @@ describe('client', function () {
 				});
 
 				expect(result.success).to.be.true;
-				expect(result.result).to.have.property('banner').that.equals('hello!\r\n');
-				expect(result.result).to.have.property('fingerprint').that.is.a('string');
-				expect(result.result.fingerprint).to.match(/^[a-zA-Z0-9+/]+=*$/);
+				expect(result.banner).to.equal('hello!\r\n');
+				expect(result.fingerprint).to.be.a('string');
+				expect(result.fingerprint).to.match(/^[a-zA-Z0-9+/]+=*$/);
 			} finally {
 				await secondClient.close();
 			}
@@ -384,7 +384,7 @@ describe('client', function () {
 				});
 
 				expect(result.success).to.be.false;
-				expect(result.result).to.have.property('reason').that.equals('no cached connection to reuse');
+				expect(result.reason).to.equal('no cached connection to reuse');
 			} finally {
 				await client.close();
 			}
@@ -583,9 +583,9 @@ describe('client', function () {
 				});
 
 				expect(result.success).to.be.true;
-				expect(result.result).to.have.property('banner').that.equals('hello!\r\n');
-				expect(result.result).to.have.property('fingerprint').that.is.a('string');
-				expect(result.result.fingerprint).to.match(/^[a-zA-Z0-9+/]+=*$/);
+				expect(result.banner).to.equal('hello!\r\n');
+				expect(result.fingerprint).to.be.a('string');
+				expect(result.fingerprint).to.match(/^[a-zA-Z0-9+/]+=*$/);
 
 				{
 					const { stdout, result } = secondClient.exec('echo "Hello, World!"');

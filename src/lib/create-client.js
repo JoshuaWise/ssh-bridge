@@ -51,7 +51,7 @@ module.exports = (socket) => {
 				case FrameParser.CONNECTED:
 					if (state === CONNECTING) {
 						state = READY;
-						resolver.resolve({ success: true, result: decodeJSON(frame.data) || {} });
+						resolver.resolve({ success: true, ...decodeJSON(frame.data) });
 						resolver = undefined;
 					} else {
 						protocolException('unexpected CONNECTED frame');
@@ -61,7 +61,7 @@ module.exports = (socket) => {
 				case FrameParser.UNCONNECTED:
 					if (state === CONNECTING) {
 						state = INITIAL;
-						resolver.resolve({ success: false, result: decodeJSON(frame.data) || {} });
+						resolver.resolve({ success: false, ...decodeJSON(frame.data) });
 						resolver = undefined;
 					} else {
 						protocolException('unexpected UNCONNECTED frame');
