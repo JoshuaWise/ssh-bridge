@@ -170,6 +170,8 @@ exports.connect = ({ username, hostname, port, fingerprint, reusable, ...auth },
 						reusable = false; // Don't reuse connections that have SSH-level errors
 						emitter.emit('result', { error: toErrorMessage(error) });
 					} else {
+						if (code === null) code = undefined;
+						if (signal === null) signal = undefined;
 						emitter.emit('result', { code, signal });
 					}
 				});

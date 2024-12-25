@@ -423,6 +423,182 @@ describe('client', function () {
 			}
 		});
 	});
+
+	describe('exec()', function () {
+		const configDir = harness.getConfigDir('exec-tests');
+
+		it('should run a command and return its stdout and exit code', async function () {
+			const client = await connect(configDir);
+			try {
+				await client.connect({
+					username: 'testuser',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				const { stdout, result } = client.exec('echo "Hello, World!"');
+				const { code, signal } = await result;
+				const stdoutString = (await streamToBuffer(stdout)).toString();
+
+				expect(code).to.equal(0);
+				expect(signal).to.be.undefined;
+				expect(stdoutString).to.equal('Hello, World!\n');
+			} finally {
+				await client.close();
+			}
+		});
+
+		it('should run a command and return its stderr and exit code', async function () {
+			const client = await connect(configDir);
+			try {
+				await client.connect({
+					username: 'testuser',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				const { stdout, stderr, result } = client.exec('echo "Hello, World!" 1>&2');
+				const { code, signal } = await result;
+				const stdoutString = (await streamToBuffer(stdout)).toString();
+				const stderrString = (await streamToBuffer(stderr)).toString();
+
+				expect(code).to.equal(0);
+				expect(signal).to.be.undefined;
+				expect(stdoutString).to.equal('');
+				expect(stderrString).to.equal('Hello, World!\n');
+			} finally {
+				await client.close();
+			}
+		});
+
+		it('should run a command and return the signal that terminated it', async function () {
+			const client = await connect(configDir);
+			try {
+				await client.connect({
+					username: 'testuser',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				const { result } = client.exec('node -e "process.kill(process.pid); setTimeout(() => {}, 10000);"');
+				const { code, signal } = await result;
+
+				expect(code).to.be.undefined;
+				expect(signal).to.equal('SIGTERM');
+			} finally {
+				await client.close();
+			}
+		});
+
+		it('should write to stdin while running a command', async function () {
+			const client = await connect(configDir);
+			try {
+				await client.connect({
+					username: 'testuser',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				const { stdin, stdout, result } = client.exec('cat');
+
+				stdin.write('Hello, ');
+				stdin.write('World!');
+				stdin.end();
+
+				const { code } = await result;
+				const stdoutString = (await streamToBuffer(stdout)).toString();
+
+				expect(code).to.equal(0);
+				expect(stdoutString).to.equal('Hello, World!');
+			} finally {
+				await client.close();
+			}
+		});
+
+		it('should write to stdin while running a command (interactively)', async function () {
+			const client = await connect(configDir);
+			try {
+				await client.connect({
+					username: 'testuser',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				const { stdin, stdout, result } = client.exec('node -e \'console.log("write something"); let data = ""; process.stdin.on("data", x => { data += x.toString() }); process.stdin.on("end", () => console.log(data));\'');
+				let data = '';
+				let ended = false;
+
+				await new Promise((resolve, reject) => {
+					stdout.on('data', (chunk) => {
+						data += chunk.toString();
+						if (data === 'write something\n') resolve();
+					});
+					stdout.on('end', () => { ended = true; });
+					stdout.on('close', () => reject(new Error('Stream closed prematurely')));
+					stdout.on('error', reject);
+				});
+
+				expect(ended).to.be.false;
+
+				stdin.write('how are');
+				stdin.write(' you doing?');
+				stdin.end();
+
+				const { code } = await result;
+				await new Promise(r => process.nextTick(r));
+
+				expect(code).to.equal(0);
+				expect(ended).to.be.true;
+				expect(data).to.equal('write something\nhow are you doing?\n');
+			} finally {
+				await client.close();
+			}
+		});
+
+		it('should run the command with an allocated PTY, if requested');
+
+		it('should not allow exec() when the client is in an errored state', async function () {
+			const client = await connect(configDir);
+			await client.close();
+
+			const { stdout, stderr, result } = client.exec('echo "Hello, World!"');
+			let stdoutErr;
+			let stderrErr;
+			stdout.on('error', (err) => { stdoutErr = err; });
+			stderr.on('error', (err) => { stderrErr = err; });
+			await expectReject(result, TypeError, 'Client is closed');
+			await new Promise(r => process.nextTick(r));
+			expect(stdoutErr).to.be.an.instanceof(TypeError);
+			expect(stdoutErr.message).to.equal('Client is closed');
+			expect(stderrErr).to.be.an.instanceof(TypeError);
+			expect(stderrErr.message).to.equal('Client is closed');
+		});
+
+		it('should not allow exec() in an invalid state', async function () {
+			const client = await connect(configDir);
+			try {
+				const { stdout, stderr, result } = client.exec('echo "Hello, World!"');
+				let stdoutErr;
+				let stderrErr;
+				stdout.on('error', (err) => { stdoutErr = err; });
+				stderr.on('error', (err) => { stderrErr = err; });
+				await expectReject(result, TypeError, 'Method not available in the current state');
+				await new Promise(r => process.nextTick(r));
+				expect(stdoutErr).to.be.an.instanceof(TypeError);
+				expect(stdoutErr.message).to.equal('Method not available in the current state');
+				expect(stderrErr).to.be.an.instanceof(TypeError);
+				expect(stderrErr.message).to.equal('Method not available in the current state');
+			} finally {
+				await client.close();
+			}
+		});
+	});
+
 });
 
 async function expectReject(promise, ...args) {
@@ -433,4 +609,14 @@ async function expectReject(promise, ...args) {
 		return;
 	}
 	expect.fail('Expected promise to be rejected');
+}
+
+async function streamToBuffer(stream) {
+	return new Promise((resolve, reject) => {
+		const chunks = [];
+		stream.on('data', (chunk) => chunks.push(chunk));
+		stream.on('end', () => resolve(Buffer.concat(chunks)));
+		stream.on('close', () => reject(new Error('Stream closed prematurely')));
+		stream.on('error', reject);
+	});
 }

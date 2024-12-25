@@ -134,9 +134,23 @@ async function startSSHServer() {
 					const session = accept();
 					session.on('exec', (accept, reject, info) => {
 						const stream = accept();
-						stream.write(`Output of command: ${info.command}\n`);
-						stream.exit(0);
-						stream.end();
+						const child = childProcess.spawn(info.command, { shell: true });
+
+						child.stdout.on('data', (data) => stream.write(data));
+						child.stderr.on('data', (data) => stream.stderr.write(data));
+						stream.on('data', (data) => child.stdin.write(data));
+						stream.on('end', () => child.stdin.end());
+
+						child.on('exit', (code, signal) => {
+							stream.exit(code != null ? code : signal);
+							stream.end();
+						});
+
+						child.on('error', (err) => {
+							stream.stderr.write(`Error: ${err.message}\n`);
+							stream.exit(1);
+							stream.end();
+						});
 					});
 				});
 			});
