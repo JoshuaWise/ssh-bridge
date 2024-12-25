@@ -8,6 +8,7 @@ const { Server, utils: { generateKeyPairSync, parseKey } } = require('ssh2');
 const TEMP_DIR = path.join(__dirname, '..', '..', 'temp');
 const originalSpawn = childProcess.spawn;
 const trackedPIDs = new Set();
+const sshConnections = new Set();
 let sshServer = null;
 let sshPort = null;
 let sshKey = null;
@@ -30,11 +31,18 @@ exports.getSSHKeyEncrypted = () => {
 	return sshKeyEncrypted;
 };
 
+exports.closeSSHConnections = async () => {
+	await Promise.all([...sshConnections].map((client) => new Promise((resolve) => {
+		client.on('close', resolve);
+		client.end();
+	})));
+};
+
 exports.mochaHooks = {
 	async beforeAll() {
 		fs.rmSync(TEMP_DIR, { recursive: true, force: true });
 		fs.mkdirSync(TEMP_DIR);
-		sshPort = await startSSHServer();
+		await startSSHServer();
 	},
 	async afterAll() {
 		try {
@@ -85,6 +93,8 @@ async function startSSHServer() {
 			hostKeys: [generateKeyPairSync('rsa', { bits: 2048 }).private],
 			banner: 'hello!',
 		}, (client) => {
+			sshConnections.add(client);
+			client.on('close', () => sshConnections.delete(client));
 			client.on('error', () => {});
 			client.on('authentication', (ctx) => {
 				switch (ctx.method) {
@@ -133,6 +143,10 @@ async function startSSHServer() {
 				client.on('session', (accept) => {
 					const session = accept();
 					session.on('exec', (accept, reject, info) => {
+						if (info.command === '<<TEST_COMMAND_THAT_ERRORS>>') {
+							return reject();
+						}
+
 						const stream = accept();
 						const child = childProcess.spawn(info.command, { shell: true });
 
@@ -157,7 +171,8 @@ async function startSSHServer() {
 		});
 
 		sshServer.listen(0, '127.0.0.1', () => {
-			resolve(sshServer.address().port);
+			sshPort = sshServer.address().port;
+			resolve();
 		});
 
 		sshServer.on('error', reject);

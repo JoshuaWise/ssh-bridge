@@ -180,13 +180,11 @@ module.exports = (signal, socket) => {
 	});
 
 	function sendRaw(type, data) {
-		if (state === ERRORED) return;
 		if (!socket.writable) return;
 		socket.write(FrameParser.createFrame(type, data));
 	}
 
 	function sendJSON(type, data) {
-		if (state === ERRORED) return;
 		if (!socket.writable) return;
 		socket.write(FrameParser.createFrame(type, JSON.stringify(data)));
 	}
