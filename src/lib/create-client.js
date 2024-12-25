@@ -158,10 +158,15 @@ module.exports = (socket) => {
 	function handleChallenge(challengeHandler, challenge, connectionAttemptNumber) {
 		Promise.resolve()
 			.then(() => challengeHandler(challenge))
-			.then((challengeResponse) => {
+			.then((responses) => {
 				if (state !== CONNECTING) return;
 				if (connectionAttempts !== connectionAttemptNumber) return;
-				sendJSON(FrameParser.CHALLENGE_RESPONSE, challengeResponse);
+				if (Array.isArray(responses)) {
+					responses = responses.map(String);
+					sendJSON(FrameParser.CHALLENGE_RESPONSE, { responses });
+				} else {
+					exception('Expected challenge response to be an array', 'CHALLENGE_ERROR');
+				}
 			}, (err) => {
 				exception('Failed to generate challenge response', 'CHALLENGE_ERROR', { cause: err });
 			});

@@ -1,6 +1,6 @@
 'use strict';
 const { EventEmitter } = require('node:events');
-const { Client } = require('ssh2');
+const { Client, utils: { parseKey } } = require('ssh2');
 
 /*
 	This module maintains a pool of cached SSH connections and credentials, and
@@ -34,6 +34,16 @@ exports.reuse = ({ username, hostname, port }, emitter) => {
 exports.connect = ({ username, hostname, port, fingerprint, reusable, ...auth }, emitter) => {
 	const cacheKey = getCacheKey(username, hostname, port);
 	const connection = new Client();
+
+	if (auth.privateKey && parseKey(auth.privateKey, auth.passphrase) instanceof Error) {
+		if (auth.password || auth.tryKeyboard) {
+			auth.privateKey = undefined;
+			auth.passphrase = undefined;
+		} else {
+			emitter.emit('unconnected', 'authentication denied');
+			return null;
+		}
+	}
 
 	let reusingCredentials = false;
 	if (!auth.privateKey && !auth.password && !auth.tryKeyboard) {
