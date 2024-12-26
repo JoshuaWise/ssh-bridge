@@ -106,7 +106,30 @@ Note that you can close the client while running a command. In this case, the SS
 
 ### *getter* client.closed -> *boolean*
 
-Returns `true` if the client is closed. The client can be closed manually by calling `client.close()`, but it may also be closed unexpectedly if a fatal error is thrown by some other operation. A closed client cannot be used for any purpose (if reconnection is desired, a new client must be created).
+Returns `true` if the client is closed. The client can be closed manually by calling `client.close()`, but it may also be closed if a fatal error is thrown by some other operation. A closed client cannot be used for any purpose (i.e., if reconnection is desired, a new client must be created).
+
+### Fatal errors
+
+Client operations may fail with a fatal error. When this happens, the client will be automatically closed. If a fatal error occurs during a `client.connect()` or `client.reuse()` call, the promise returned by those functions will be rejected. If a fatal error occurs while executing a command, the command's `result` promise will be rejected. Fatal errors have a `type` property (string), with one of the following values:
+
+- `NO_DAEMON`
+	* The client was unexpectedly disconnected from the daemon.
+- `NO_SSH`
+	* The client's SSH connection was unexpectedly disconnected.
+	* This error will have a human-readable `reason` property (string).
+- `DAEMON_ERROR`
+	* The daemon emitted a fatal error to the client (usually because the client did something wrong).
+	* This error will have a human-readable `reason` property (string).
+- `SSH_ERROR`
+	* An unexpected error occured in the SSH layer.
+	* This error will have a human-readable `reason` property (string).
+- `PROTOCOL_ERROR`
+	* The daemon violated its own protocol (this would be considered a bug).
+	* This error will have a human-readable `reason` property (string).
+- `CHALLENGE_ERROR`
+	* The `challengeHandler` threw an error or returned an invalid value.
+- `CLOSED`
+	* The client was closed manually, by calling `client.close()`.
 
 ## License
 
