@@ -80,7 +80,6 @@ exports.connect = ({ username, hostname, port, fingerprint, reusable, ...auth },
 
 	let banner = null;
 	connection.on('banner', (message) => {
-		// TODO: make sure this occurs before connection.on('ready')
 		banner = message.endsWith('\n') ? message : message + '\n';
 	});
 
