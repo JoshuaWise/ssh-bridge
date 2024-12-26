@@ -187,7 +187,7 @@ describe('sshBridge()', function () {
 
 	it('should allow a custom daemonProcessTitle to be provided', async function () {
 		const configDir = harness.getConfigDir('custom-title-test');
-		const customTitle = 'ssh-bridge-custom-title';
+		const customTitle = 'ssh-bridge-test';
 
 		const client = await sshBridge(configDir, customTitle);
 		try {
