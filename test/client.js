@@ -1,6 +1,7 @@
 'use strict';
 const { expect } = require('chai');
 const sshBridge = require('../src/lib/index');
+const shellEscape = require('./tools/shell-escape');
 const harness = require('./tools/harness');
 
 describe('client', function () {
@@ -437,7 +438,7 @@ describe('client', function () {
 					password: 'correct_password',
 				});
 
-				const { stdout, result } = client.exec('echo "Hello, World!"');
+				const { stdout, result } = client.exec(shellEscape('node', '-e', 'console.log("Hello, World!")'));
 				const { code, signal } = await result;
 				const stdoutString = (await streamToBuffer(stdout)).toString();
 
@@ -459,7 +460,7 @@ describe('client', function () {
 					password: 'correct_password',
 				});
 
-				const { stdout, stderr, result } = client.exec('echo "Hello, World!" 1>&2');
+				const { stdout, stderr, result } = client.exec(shellEscape('node', '-e', 'console.error("Hello, World!")'));
 				const { code, signal } = await result;
 				const stdoutString = (await streamToBuffer(stdout)).toString();
 				const stderrString = (await streamToBuffer(stderr)).toString();
@@ -484,7 +485,7 @@ describe('client', function () {
 				});
 
 				const prefix = process.platform === 'win32' ? '' : 'exec ';
-				const { result } = client.exec(`${prefix}node -e "process.kill(process.pid); setTimeout(() => {}, 10000);"`);
+				const { result } = client.exec(`${prefix}${shellEscape('node', '-e', 'process.kill(process.pid); setTimeout(() => {}, 10000)')}`);
 				const { code, signal } = await result;
 
 				if (process.platform === 'win32') {
@@ -535,7 +536,8 @@ describe('client', function () {
 					password: 'correct_password',
 				});
 
-				const { stdin, stdout, result } = client.exec('node -e \'console.log("write something"); let data = ""; process.stdin.on("data", x => { data += x.toString() }); process.stdin.on("end", () => console.log(data));\'');
+
+				const { stdin, stdout, result } = client.exec(shellEscape('node', '-e', 'console.log("write something"); let data = ""; process.stdin.on("data", x => { data += x.toString() }); process.stdin.on("end", () => console.log(data));'));
 				let data = '';
 				let ended = false;
 
@@ -594,7 +596,7 @@ describe('client', function () {
 				expect(result.fingerprint).to.match(/^[a-zA-Z0-9+/]+=*$/);
 
 				{
-					const { stdout, result } = secondClient.exec('echo "Hello, World!"');
+					const { stdout, result } = secondClient.exec(shellEscape('node', '-e', 'console.log("Hello, World!")'));
 					const { code, signal } = await result;
 					const stdoutString = (await streamToBuffer(stdout)).toString();
 
@@ -603,7 +605,7 @@ describe('client', function () {
 					expect(stdoutString).to.equal('Hello, World!\n');
 				}
 				{
-					const { stderr, result } = secondClient.exec('node -e \'console.warn("Hello, Friend!"); process.exit(2);\'');
+					const { stderr, result } = secondClient.exec(shellEscape('node', '-e', 'console.warn("Hello, Friend!"); process.exit(2)'));
 					const { code, signal } = await result;
 					const stderrString = (await streamToBuffer(stderr)).toString();
 
@@ -622,7 +624,7 @@ describe('client', function () {
 			const client = await sshBridge(configDir);
 			await client.close();
 
-			const { stdout, stderr, result } = client.exec('echo "Hello, World!"');
+			const { stdout, stderr, result } = client.exec(shellEscape('node', '-e', 'console.log("Hello, World!")'));
 			let stdoutErr;
 			let stderrErr;
 			stdout.on('error', (err) => { stdoutErr = err; });
@@ -638,7 +640,7 @@ describe('client', function () {
 		it('should not allow exec() in an invalid state', async function () {
 			const client = await sshBridge(configDir);
 			try {
-				const { stdout, stderr, result } = client.exec('echo "Hello, World!"');
+				const { stdout, stderr, result } = client.exec(shellEscape('node', '-e', 'console.log("Hello, World!")'));
 				let stdoutErr;
 				let stderrErr;
 				stdout.on('error', (err) => { stdoutErr = err; });
