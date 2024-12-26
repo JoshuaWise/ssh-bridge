@@ -196,7 +196,7 @@ describe('sshBridge()', function () {
 			expect(pid).to.match(/^[0-9]+$/);
 
 			// Verify the daemon process title.
-			const command = `ps -p ${pid} -o comm=`; // TODO: what about windows?
+			const command = `ps -wwp ${pid} -o comm=`; // TODO: what about windows?
 			const daemonTitle = execSync(`bash -c '${command}'`).toString().trim();
 			expect(daemonTitle).to.equal(customTitle);
 		} finally {
