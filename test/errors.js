@@ -19,13 +19,13 @@ describe('errors', function () {
 
 			// Wait for the daemon to exit.
 			for (;;) {
-			    try {
-			        await new Promise(r => setTimeout(r, 10));
-			        process.kill(pid, 0);
-			    } catch (err) {
-			        if (err.code === 'ESRCH') break;
-			        throw err;
-			    }
+				try {
+					await new Promise(r => setTimeout(r, 10));
+					process.kill(pid, 0);
+				} catch (err) {
+					if (err.code === 'ESRCH') break;
+					throw err;
+				}
 			}
 
 			const { result } = client.exec('echo test');
