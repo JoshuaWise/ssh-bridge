@@ -16,9 +16,11 @@ npm install ssh-bridge
 
 Returns a new client, which can be used to establish SSH connections and run commands via SSH.
 
-By default, the `configDir` is `~/.ssh-bridge`. If there's no `ssh-bridge` daemon running in the `configDir`, this function will spawn a new daemon before returning. By default, the daemon's process title is `ssh-bridge`, but you can override this by passing `daemonProcessTitle`. Note that passing `daemonProcessTitle` does nothing if there's already a daemon running in `configDir`. The `configDir` is used for internal purposes only.
+By default, the `configDir` is `~/.ssh-bridge`. If there's no `ssh-bridge` daemon running in the `configDir`, this function will spawn a new daemon before returning. By default, the daemon's process title is `ssh-bridge`, but you can override this by passing `daemonProcessTitle`. Note that passing `daemonProcessTitle` does nothing if there's already a daemon running in `configDir`.
 
 The returned client communicates with the daemon over a Unix domain socket (or a named pipe on Windows). The daemon process is the one responsible for making actual SSH connections. The daemon will continue running in the background even after the client program exits (this is how it's able to reuse cached credentials and connections, similar to [ssh-agent](https://linux.die.net/man/1/ssh-agent)). This library guarantees that only one daemon will be running at a time (for a given `configDir`). The fact that a background daemon exists is all mostly transparent (i.e., an implementation detail) from the perspective of someone using this library. However, if something goes wrong, you can view the daemon's logs at `<configDir>/log`.
+
+The `configDir` contains the Unix domain socket file, which provides access to the daemon. Note that for security reasons, only the current user should have access to the `configDir`. On Unix-based systems, this library will automatically create the `configDir` with the correct permissions, but it will not do that if the `configDir` already exists.
 
 ### client.connect(*params*, [*challengeHandler*]) -> *Promise&lt;object>*
 
