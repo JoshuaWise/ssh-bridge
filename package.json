@@ -1,7 +1,7 @@
 {
   "name": "ssh-bridge",
   "version": "1.0.0",
-  "description": "Run SSH commands through a connection pool daemon",
+  "description": "An SSH client for Node.js that uses a daemon to cache credentials and connections",
   "author": "Joshua Wise <joshuathomaswise@gmail.com>",
   "homepage": "https://github.com/JoshuaWise/ssh-bridge#readme",
   "repository": {
