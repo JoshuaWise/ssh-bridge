@@ -96,11 +96,11 @@ The returned object has these properties:
 - `stderr` ([stream.Readable](https://nodejs.org/api/stream.html#readable-streams))
 - `result` (Promise&lt;{ code?: number, signal?: string }>)
 
-The `result` promise will resolve when the remote command exits. If it exited normally, `code` will the exit code of the remote process. Otherwise, if the remote process was terminated by a signal, `signal` will be the name of that signal (e.g., `SIGTERM`). You can communicate with the remote process's I/O streams via `stdin`, `stdout`, and `stderr`.
+The `result` promise will resolve when the remote command exits. If it exited normally, `code` will be the exit code of the remote process. Otherwise, if the remote process was terminated by a signal, `signal` will be the name of that signal (e.g., `SIGTERM`). You can communicate with the remote process's I/O streams via `stdin`, `stdout`, and `stderr`.
 
 ### client.close() -> *Promise&lt;void>*
 
-Closes the client. If there's an open SSH connection, it will also be closed (or cached). After calling this, the client can no longer be used. The client will immediately enter a "closed" state (i.e., `client.closed` will return `true`), but the promise returned by this function will not resolve until the underlying connection to the daemon is fully cleaned up.
+Closes the client. If there's an open SSH connection, it will also be closed (or cached). After calling this, the client can no longer be used. The client will immediately enter a "closed" state (i.e., `client.closed` will return `true`), but the promise returned by this function will not resolve until the underlying connection to the daemon is fully cleaned up. The returned promise is never rejected.
 
 Note that you can close the client while running a command. In this case, the SSH connection will indeed be closed, but it's up the SSH server whether the command will be terminated or continue running (e.g., on Linux, this behavior is usually controlled by `KillUserProcesses` in `/etc/systemd/logind.conf`).
 
