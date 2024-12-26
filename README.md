@@ -1,6 +1,6 @@
 # ssh-bridge [![test](https://github.com/JoshuaWise/ssh-bridge/actions/workflows/test.yml/badge.svg)](https://github.com/JoshuaWise/ssh-bridge/actions/workflows/test.yml)
 
-An SSH client for Node.js that transparently uses a background daemon to cache credentials and reusable connections.
+An SSH client for Node.js that transparently uses a background daemon to cache credentials and reuse connections.
 
 ## Installation
 
