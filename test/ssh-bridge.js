@@ -24,25 +24,33 @@ describe('sshBridge()', function () {
 
 	it('should spawn a new daemon if one does not already exist', async function () {
 		const configDir = harness.getConfigDir('spawn-daemon-test');
-		const daemonSocket = path.join(configDir, 'sock'); // TODO: what about windows?
 		const lockPath = path.join(configDir, 'lock');
 
+		let isFile = true;
+		let socketPath;
+		if (process.platform === 'win32') {
+			socketPath = path.join('\\\\?\\pipe', configDir, 'sock');
+			isFile = false;
+		} else {
+			socketPath = path.join(configDir, 'sock');
+		}
+
 		const isDaemonRunning = () => new Promise((resolve) => {
-			const socket = net.connect(daemonSocket);
+			const socket = net.connect(socketPath);
 			socket.on('connect', () => { socket.destroy(); resolve(true); });
 			socket.on('error', () => resolve(false));
 		});
 
 		// Ensure the daemon is NOT running.
 		expect(await isDaemonRunning()).to.be.false;
-		expect(fs.existsSync(daemonSocket)).to.be.false;
+		isFile && expect(fs.existsSync(socketPath)).to.be.false;
 		expect(fs.existsSync(lockPath)).to.be.false;
 
 		const client = await sshBridge(configDir);
 		try {
 			// Ensure the daemon is running.
 			expect(await isDaemonRunning()).to.be.true;
-			expect(fs.existsSync(daemonSocket)).to.be.true;
+			isFile && expect(fs.existsSync(socketPath)).to.be.true;
 			expect(fs.existsSync(lockPath)).to.be.true;
 		} finally {
 			await client.close();

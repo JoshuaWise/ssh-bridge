@@ -483,7 +483,8 @@ describe('client', function () {
 					password: 'correct_password',
 				});
 
-				const { result } = client.exec('exec node -e "process.kill(process.pid); setTimeout(() => {}, 10000);"');
+				const prefix = process.platform === 'win32' ? '' : 'exec ';
+				const { result } = client.exec(`${prefix}node -e "process.kill(process.pid); setTimeout(() => {}, 10000);"`);
 				const { code, signal } = await result;
 
 				expect(code).to.be.undefined;
