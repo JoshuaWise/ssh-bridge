@@ -13,6 +13,7 @@ let sshServer = null;
 let sshPort = null;
 let sshKey = null;
 let sshKeyEncrypted = null;
+let sshPassword = null;
 
 exports.getConfigDir = (label) => {
 	const random = randomBytes(12).toString('hex');
@@ -31,11 +32,25 @@ exports.getSSHKeyEncrypted = () => {
 	return sshKeyEncrypted;
 };
 
+exports.getSSHConnectionCount = () => {
+	return sshConnections.size;
+};
+
 exports.closeSSHConnections = async () => {
 	await Promise.all([...sshConnections].map((client) => new Promise((resolve) => {
 		client.on('close', resolve);
 		client.end();
 	})));
+};
+
+exports.withSSHPassword = async (newPassword, callback) => {
+	const oldPassword = sshPassword;
+	sshPassword = newPassword;
+	try {
+		await callback(sshPassword);
+	} finally {
+		sshPassword = oldPassword;
+	}
 };
 
 exports.mochaHooks = {
@@ -88,6 +103,7 @@ async function startSSHServer() {
 
 		sshKey = allowedKey.private;
 		sshKeyEncrypted = allowedKeyEncrypted.private;
+		sshPassword = 'correct_password';
 
 		sshServer = new Server({
 			hostKeys: [generateKeyPairSync('rsa', { bits: 2048 }).private],
@@ -99,7 +115,7 @@ async function startSSHServer() {
 			client.on('authentication', (ctx) => {
 				switch (ctx.method) {
 					case 'password':
-						if (ctx.password !== 'correct_password') {
+						if (ctx.password !== sshPassword) {
 							return ctx.reject();
 						}
 						break
@@ -188,6 +204,7 @@ async function stopSSHServer() {
 				sshPort = null;
 				sshKey = null;
 				sshKeyEncrypted = null;
+				sshPassword = null;
 				resolve();
 			});
 		});
