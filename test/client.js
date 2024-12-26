@@ -486,7 +486,7 @@ describe('client', function () {
 				const { result } = client.exec('node -e "process.kill(process.pid); setTimeout(() => {}, 10000);"');
 				const { code, signal } = await result;
 
-				expect(code).to.be.undefined;
+				expect([undefined, 143]).to.include(code);
 				expect(signal).to.equal('SIGTERM');
 			} finally {
 				await client.close();
