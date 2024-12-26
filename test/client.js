@@ -483,10 +483,10 @@ describe('client', function () {
 					password: 'correct_password',
 				});
 
-				const { result } = client.exec('node -e "process.kill(process.pid); setTimeout(() => {}, 10000);"');
+				const { result } = client.exec('exec node -e "process.kill(process.pid); setTimeout(() => {}, 10000);"');
 				const { code, signal } = await result;
 
-				expect([undefined, 143]).to.include(code);
+				expect(code).to.be.undefined;
 				expect(signal).to.equal('SIGTERM');
 			} finally {
 				await client.close();
