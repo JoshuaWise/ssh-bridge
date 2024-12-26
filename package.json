@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "description": "Run SSH commands through a connection pool daemon",
   "author": "Joshua Wise <joshuathomaswise@gmail.com>",
-  "homepage": "https://github.com/WiseLibs/ssh-bridge#readme",
+  "homepage": "https://github.com/JoshuaWise/ssh-bridge#readme",
   "repository": {
     "type": "git",
-    "url": "git://github.com/WiseLibs/ssh-bridge.git"
+    "url": "git://github.com/JoshuaWise/ssh-bridge.git"
   },
   "license": "MIT",
   "main": "./src/lib/index.js",
