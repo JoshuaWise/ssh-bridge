@@ -14,7 +14,7 @@ npm install ssh-bridge
 
 ## sshBridge([*configDir*, [*daemonProcessTitle*]]) -> *Promise&lt;Client>*
 
-Asynchronously returns a new client, which can be used to establish SSH connections and run commands via SSH.
+Returns a new client, which can be used to establish SSH connections and run commands via SSH.
 
 If there's no `ssh-bridge` daemon running in the `configDir`, this function will spawn a new daemon before returning. By default, the `configDir` is `~/.ssh-bridge`. By default, the daemon's process title is `ssh-bridge`, but you can override this by passing `daemonProcessTitle`. Note that passing `daemonProcessTitle` does nothing if there's already a daemon running in `configDir`.
 
@@ -22,7 +22,7 @@ The returned client communicates with the daemon over a Unix domain socket (or a
 
 ### client.connect(*params*, [*challengeHandler*]) -> *Promise&lt;object>*
 
-Asynchronously establishes a new SSH connection.
+Establishes a new SSH connection.
 
 The following params are supported:
 
@@ -64,7 +64,7 @@ In general, a `privateKey`, `password`, or `challengeHandler` must be provided f
 
 ### client.reuse(*params*) -> *Promise&lt;object>*
 
-Asynchronously assigns a cached SSH connection to the client. This is effectively the same as `client.connect()`, except it tries to reuse a cached connection instead of establishing a new one. An SSH connection will only be cached if it was created by passing `reusable: true` to `client.connect()`. Before an SSH connection is cached, the original client that established the connection must be closed (because an SSH connection can only be assigned to one client at a time). The `ssh-bridge` daemon only maintains a maximum of one cached connection per hostname/username/port combo. Cached connections are automatically closed after being unused for 12 hours (this may be configurable in the future).
+Assigns a cached SSH connection to the client. This is effectively the same as `client.connect()`, except it tries to reuse a cached connection instead of establishing a new one. An SSH connection will only be cached if it was created by passing `reusable: true` to `client.connect()`. Before an SSH connection is cached, the original client that established the connection must be closed (because an SSH connection can only be assigned to one client at a time). The `ssh-bridge` daemon only maintains a maximum of one cached connection per hostname/username/port combo. Cached connections are automatically closed after being unused for 12 hours (this may be configurable in the future).
 
 The following params are supported:
 
