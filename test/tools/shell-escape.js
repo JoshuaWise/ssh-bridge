@@ -11,7 +11,7 @@ function escapeShellArg(arg) {
 			.replace(/([&()<>|])/g, '^$1')
 			.replace(/"/g, '""');
 
-		return `"${escaped}"`;
+		return `"${arg}"`;
 	} else {
 		return `'${arg.replace(/'/g, '\'\\\'\'')}'`;
 	}
