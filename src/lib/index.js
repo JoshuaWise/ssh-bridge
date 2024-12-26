@@ -128,7 +128,8 @@ async function connect(socketPath) {
 		const onError = (err) => {
 			socket.removeListener('connect', onConnect);
 			socket.removeListener('error', onError);
-			if (err.code === 'ENOENT') resolve(null);
+			if (err.code === 'ECONNREFUSED') resolve(null);
+			else if (err.code === 'ENOENT') resolve(null);
 			else reject(err);
 		};
 		socket.on('connect', onConnect);
