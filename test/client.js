@@ -487,8 +487,13 @@ describe('client', function () {
 				const { result } = client.exec(`${prefix}node -e "process.kill(process.pid); setTimeout(() => {}, 10000);"`);
 				const { code, signal } = await result;
 
-				expect(code).to.be.undefined;
-				expect(signal).to.equal('SIGTERM');
+				if (process.platform === 'win32') {
+					expect(code).to.equal(1);
+					expect(signal).to.be.undefined;
+				} else {
+					expect(code).to.be.undefined;
+					expect(signal).to.equal('SIGTERM');
+				}
 			} finally {
 				await client.close();
 			}
@@ -602,7 +607,7 @@ describe('client', function () {
 					const { code, signal } = await result;
 					const stderrString = (await streamToBuffer(stderr)).toString();
 
-					expect(code).to.equal(2);
+					expect(code).to.equal(process.platform === 'win32' ? 1 : 2);
 					expect(signal).to.be.undefined;
 					expect(stderrString).to.equal('Hello, Friend!\n');
 				}
