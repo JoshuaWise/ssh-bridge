@@ -62,7 +62,7 @@ If the remote server uses "keyboard-interactive" authentication, you can provide
 
 #### Using cached credentials
 
-In general, a `privateKey`, `password`, or `challengeHandler` must be provided for authentication purposes. However, if the `ssh-bridge` daemon had previously facilitated a connection to the same username/hostname/port, it may have cached credentials available. You can optimistically try connecting via cached credentials by omitting `privateKey`, `password`, and `challengeHandler`. If authentication fails, then you should fall back to providing your own credentials. This workflow can alleviate the user from needing to manually enter credentials every time. Note that the daemon never caches credentials for the "keyboard-interactive" authentication method (only for "publickey" and "password" authentication methods).
+In general, a `privateKey`, `password`, or `challengeHandler` must be provided for authentication purposes. However, if the `ssh-bridge` daemon had previously facilitated a connection to the same username/hostname/port, it may have cached credentials available. You can optimistically try connecting via cached credentials by omitting `privateKey`, `password`, and `challengeHandler`. If authentication fails, then you should fall back to providing your own credentials. This workflow can alleviate the user from needing to manually enter credentials every time. Note that the daemon never caches credentials for the "keyboard-interactive" authentication method (only the "publickey" and "password" authentication methods are cached).
 
 ### client.reuse(*params*) -> *Promise&lt;object>*
 
