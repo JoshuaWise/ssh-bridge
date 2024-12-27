@@ -5,6 +5,7 @@ const childProcess = require('node:child_process');
 const { randomBytes } = require('node:crypto');
 const { Server, utils: { generateKeyPairSync, parseKey } } = require('ssh2');
 
+const WIN32 = process.platform === 'win32';
 const TEMP_DIR = path.join(__dirname, '..', '..', 'temp');
 const originalSpawn = childProcess.spawn;
 const trackedPIDs = new Set();
@@ -62,6 +63,7 @@ exports.mochaHooks = {
 	async afterAll() {
 		try {
 			terminateTrackedProcesses();
+			WIN32 && await new Promise(r => setTimeout(r, 1000));
 			fs.rmSync(TEMP_DIR, { recursive: true, force: true });
 			await stopSSHServer();
 		} finally {
