@@ -63,6 +63,7 @@ describe('decode', function () {
 				passphrase: 'phrase',
 				password: 'password',
 				tryKeyboard: false,
+				privateKeyEncoded: false,
 			}));
 			const result = decode.connectParams(data);
 			expect(result).to.deep.equal({
@@ -91,6 +92,27 @@ describe('decode', function () {
 				fingerprint: undefined,
 				reusable: false,
 				privateKey: undefined,
+				passphrase: undefined,
+				password: undefined,
+				tryKeyboard: false,
+			});
+		});
+
+		it('should decode a base64-encoded privateKey', function () {
+			const data = Buffer.from(JSON.stringify({
+				username: 'user',
+				hostname: 'host.example.com',
+				privateKey: Buffer.from('hello world').toString('base64'),
+				privateKeyEncoded: true,
+			}));
+			const result = decode.connectParams(data);
+			expect(result).to.deep.equal({
+				username: 'user',
+				hostname: 'host.example.com',
+				port: 22,
+				fingerprint: undefined,
+				reusable: false,
+				privateKey: Buffer.from('hello world'),
 				passphrase: undefined,
 				password: undefined,
 				tryKeyboard: false,
@@ -143,6 +165,16 @@ describe('decode', function () {
 				username: 'user',
 				hostname: 'host.example.com',
 				passphrase: 'passphrase',
+			}));
+			const result = decode.connectParams(data);
+			expect(result).to.be.null;
+		});
+
+		it('should return null if privateKeyEncoded is true without privateKey', function () {
+			const data = Buffer.from(JSON.stringify({
+				username: 'user',
+				hostname: 'host.example.com',
+				privateKeyEncoded: true,
 			}));
 			const result = decode.connectParams(data);
 			expect(result).to.be.null;

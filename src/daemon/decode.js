@@ -37,6 +37,7 @@ exports.connectParams = (data) => {
 			passphrase,
 			password,
 			tryKeyboard = false,
+			privateKeyEncoded = false,
 		} = expectJSON(data);
 
 		validate(isNonEmptyString(hostname));
@@ -46,9 +47,11 @@ exports.connectParams = (data) => {
 		validate(isNonEmptyString(privateKey) || privateKey === undefined);
 		validate(isNonEmptyString(passphrase) || passphrase === undefined);
 		validate(isNonEmptyString(password) || password === undefined);
+		validate(typeof privateKeyEncoded === 'boolean');
 		validate(typeof tryKeyboard === 'boolean');
 		validate(typeof reusable === 'boolean');
 		validate(!!privateKey || !passphrase);
+		validate(!!privateKey || !privateKeyEncoded);
 
 		return {
 			username,
@@ -56,7 +59,7 @@ exports.connectParams = (data) => {
 			port,
 			fingerprint,
 			reusable,
-			privateKey,
+			privateKey: privateKeyEncoded ? Buffer.from(privateKey, 'base64') : privateKey,
 			passphrase,
 			password,
 			tryKeyboard,

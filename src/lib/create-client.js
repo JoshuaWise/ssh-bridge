@@ -233,6 +233,13 @@ module.exports = (socket) => {
 				throw new TypeError('Expected challengeHandler to be a function, if provided');
 			}
 
+			if (Buffer.isBuffer(params.privateKey)) {
+				params.privateKey = params.privateKey.toString('base64');
+				params.privateKeyEncoded = true;
+			} else {
+				params.privateKeyEncoded = false;
+			}
+
 			expectState(INITIAL);
 			sendJSON(FrameParser.CONNECT, params);
 			connectionAttempts += 1;

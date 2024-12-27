@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const net = require('node:net');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
+const { utils: { parseKey } } = require('ssh2');
 const createClient = require('./create-client');
 
 const NODE = process.execPath;
@@ -47,6 +48,9 @@ module.exports = async (configDir, daemonProcessTitle = '') => {
 
 	return createClient(socket);
 };
+
+// Export parseKey, so clients can determine if SSH keys are encrypted or not.
+module.exports.parseKey = parseKey;
 
 // By default, the config directory will be "~/.ssh-bridge", but any directory
 // can be specified. The config directory's parent directory MUST already exist.

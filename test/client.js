@@ -27,7 +27,7 @@ describe('client', function () {
 			}
 		});
 
-		it('should successfully authenticate with unencrypted public key', async function () {
+		it('should successfully authenticate with unencrypted private key', async function () {
 			const client = await sshBridge(configDir);
 			try {
 				const result = await client.connect({
@@ -46,7 +46,7 @@ describe('client', function () {
 			}
 		});
 
-		it('should successfully authenticate with encrypted public key', async function () {
+		it('should successfully authenticate with encrypted private key', async function () {
 			const client = await sshBridge(configDir);
 			try {
 				const result = await client.connect({
@@ -54,6 +54,26 @@ describe('client', function () {
 					hostname: '127.0.0.1',
 					port: harness.getSSHPort(),
 					privateKey: harness.getSSHKeyEncrypted(),
+					passphrase: 'correct_passphrase',
+				});
+
+				expect(result.success).to.be.true;
+				expect(result.banner).to.equal('hello!\r\n');
+				expect(result.fingerprint).to.be.a('string');
+				expect(result.fingerprint).to.match(/^[a-zA-Z0-9+/]+=*$/);
+			} finally {
+				await client.close();
+			}
+		});
+
+		it('should successfully authenticate with encrypted private key Buffer', async function () {
+			const client = await sshBridge(configDir);
+			try {
+				const result = await client.connect({
+					username: 'testuser_pubkey_passphrase',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					privateKey: Buffer.from(harness.getSSHKeyEncrypted()),
 					passphrase: 'correct_passphrase',
 				});
 
@@ -141,7 +161,7 @@ describe('client', function () {
 			}
 		});
 
-		it('should fail to authenticate with missing public key passphrase', async function () {
+		it('should fail to authenticate with missing private key passphrase', async function () {
 			const client = await sshBridge(configDir);
 			try {
 				const result = await client.connect({
@@ -158,7 +178,7 @@ describe('client', function () {
 			}
 		});
 
-		it('should fail to authenticate with wrong public key passphrase', async function () {
+		it('should fail to authenticate with wrong private key passphrase', async function () {
 			const client = await sshBridge(configDir);
 			try {
 				const result = await client.connect({
