@@ -6,12 +6,7 @@ module.exports = (...args) => {
 
 function escapeShellArg(arg) {
 	if (process.platform === 'win32') {
-		arg = arg
-			.replace(/\^/g, '^^')
-			.replace(/([&()<>|])/g, '^$1')
-			.replace(/"/g, '""');
-
-		return `"${arg}"`;
+		return `"${arg.replace(/(["\\])/g, '\\$1')}"`;
 	} else {
 		return `'${arg.replace(/'/g, '\'\\\'\'')}'`;
 	}
