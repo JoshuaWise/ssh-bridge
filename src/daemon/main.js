@@ -88,9 +88,8 @@ function acquireLock(lockPath) {
 	} catch (err) {
 		fs.closeSync(fd);
 		if (!locked) {
-			if (err.code === 'EAGAIN') return null; // POSIX
-			if (err.code === 'EWOULDBLOCK') return null; // POSIX
-			if (err.code === 'EBUSY') return null; // Windows
+			if (err.code === 'EAGAIN') return null;
+			if (err.code === 'EWOULDBLOCK') return null;
 		}
 		throw err;
 	}
