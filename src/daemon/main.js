@@ -6,6 +6,8 @@ const { flockSync } = require('fs-ext');
 const handler = require('./handler');
 const pool = require('./pool');
 
+const WIN32 = process.platform === 'win32';
+
 /*
 	This the ssh-bridge daemon. Only one such daemon can be running at a time,
 	so we use OS-level file locking to ensure that. The daemon starts a Unix
@@ -85,6 +87,10 @@ function acquireLock(lockPath) {
 		locked = true;
 		fs.ftruncateSync(fd);
 		fs.writeFileSync(fd, `${process.pid}\n`);
+		// On Windows, file locks are enforced, so we need to downgrade to a
+		// shared lock, so other processes can read the PID from the lock file.
+		WIN32 && flockSync(fd, 'shnb');
+		WIN32 && flockSync(fd, 'un');
 	} catch (err) {
 		fs.closeSync(fd);
 		if (!locked) {
@@ -98,7 +104,9 @@ function acquireLock(lockPath) {
 	return {
 		unlock() {
 			if (!closed) {
-				fs.ftruncateSync(fd);
+				// Since we have an (enforced) shared lock on Windows, we can't
+				// actually clean up the PID text, but it's not a big deal.
+				WIN32 || fs.ftruncateSync(fd);
 				flockSync(fd, 'un');
 				fs.closeSync(fd);
 				closed = true;
