@@ -87,7 +87,11 @@ function acquireLock(lockPath) {
 		fs.writeFileSync(fd, `${process.pid}\n`);
 	} catch (err) {
 		fs.closeSync(fd);
-		if (!locked && err.code === 'EAGAIN') return null;
+		if (!locked) {
+			if (err.code === 'EAGAIN') return null; // POSIX
+			if (err.code === 'EWOULDBLOCK') return null; // POSIX
+			if (err.code === 'EBUSY') return null; // Windows
+		}
 		throw err;
 	}
 
