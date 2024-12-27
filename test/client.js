@@ -510,7 +510,7 @@ describe('client', function () {
 					password: 'correct_password',
 				});
 
-				const { stdin, stdout, result } = client.exec('cat');
+				const { stdin, stdout, result } = client.exec(shellEscape('node', '-e', 'let data = ""; process.stdin.on("data", x => { data += x.toString() }); process.stdin.on("end", () => console.log(data));'));
 
 				stdin.write('Hello, ');
 				stdin.write('World!');
@@ -520,7 +520,7 @@ describe('client', function () {
 				const stdoutString = (await streamToBuffer(stdout)).toString();
 
 				expect(code).to.equal(0);
-				expect(stdoutString).to.equal('Hello, World!');
+				expect(stdoutString).to.equal('Hello, World!\n');
 			} finally {
 				await client.close();
 			}
@@ -609,7 +609,7 @@ describe('client', function () {
 					const { code, signal } = await result;
 					const stderrString = (await streamToBuffer(stderr)).toString();
 
-					expect(code).to.equal(process.platform === 'win32' ? 1 : 2);
+					expect(code).to.equal(2);
 					expect(signal).to.be.undefined;
 					expect(stderrString).to.equal('Hello, Friend!\n');
 				}
