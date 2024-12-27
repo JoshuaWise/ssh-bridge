@@ -21,7 +21,6 @@ describe('sshBridge()', function () {
 		const configDir = harness.getConfigDir('invalid-title-test');
 		await expectReject(sshBridge(configDir, 123), TypeError, 'Expected daemonProcessTitle to be a string, if provided');
 	});
-
 	it('should spawn a new daemon if one does not already exist', async function () {
 		const configDir = harness.getConfigDir('spawn-daemon-test');
 		const lockPath = path.join(configDir, 'lock');
@@ -185,7 +184,7 @@ describe('sshBridge()', function () {
 		}
 	});
 
-	it('should allow a custom daemonProcessTitle to be provided', async function () {
+	itUnix('should allow a custom daemonProcessTitle to be provided', async function () {
 		const configDir = harness.getConfigDir('custom-title-test');
 		const customTitle = 'ssh-bridge-test';
 
@@ -196,7 +195,7 @@ describe('sshBridge()', function () {
 			expect(pid).to.match(/^[0-9]+$/);
 
 			// Verify the daemon process title.
-			const command = `ps -p ${pid} -o comm= -ww`; // TODO: what about windows?
+			const command = `ps -p ${pid} -o comm= -ww`;
 			const daemonTitle = execSync(`bash -c '${command}'`).toString().trim();
 			expect(daemonTitle).to.equal(customTitle);
 		} finally {

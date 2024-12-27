@@ -116,7 +116,7 @@ describe('daemon', function () {
 		expect(harness.getSSHConnectionCount()).to.equal(sshConnectionCount);
 	});
 
-	it('should wait for pending commands to finish during graceful shutdown', async function () {
+	itUnix('should wait for pending commands to finish during graceful shutdown', async function () {
 		const client = await sshBridge(configDir);
 		try {
 			await client.connect({

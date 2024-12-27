@@ -212,3 +212,8 @@ async function stopSSHServer() {
 		});
 	}
 }
+
+global.itUnix = function (...args) {
+	const fn = WIN32 ? it.skip : it;
+	return fn.apply(this, args);
+};
