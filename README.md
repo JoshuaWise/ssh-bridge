@@ -98,6 +98,14 @@ The returned object has these properties:
 
 The `result` promise will resolve when the remote command exits. If it exited normally, `code` will be the exit code of the remote process. Otherwise, if the remote process was terminated by a signal, `signal` will be the name of that signal (e.g., `SIGTERM`). You can communicate with the remote process's I/O streams via `stdin`, `stdout`, and `stderr`.
 
+### client.share() -> *Promise&lt;string>*
+
+Relinquishes the client's SSH connection to the daemon's connection pool. However, unlike a regular cached connection, the shared connection will have an associated `shareKey` (returned by this function). Clients can only reuse a shared connection by providing the correct `shareKey` to `client.reuse()`.
+
+Shared connections are automatically cleaned up if they aren't reused within 5 seconds of being shared. Shared connections allow multiple coordinated processes to efficiently share the same SSH connection.
+
+This function can only be used after successfully acquiring an SSH connnection with `client.connect()` or `client.reuse()`, and it cannot be used while running a command. After calling `client.share()`, the client no longer has an SSH connection, but it can acquire a new one with `client.connect()` or `client.reuse()`.
+
 ### client.close() -> *Promise&lt;void>*
 
 Closes the client. If there's an open SSH connection, it will also be closed (or cached). After calling this, the client can no longer be used. The client will immediately enter a "closed" state (i.e., `client.closed` will return `true`), but the promise returned by this function will not resolve until the underlying connection to the daemon is fully cleaned up. The returned promise is never rejected.

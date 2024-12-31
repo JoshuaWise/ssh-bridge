@@ -9,12 +9,29 @@ describe('decode', function () {
 				username: 'user',
 				hostname: 'host.example.com',
 				port: 22,
+				shareKey: 'abc',
 			}));
 			const result = decode.reuseParams(data);
 			expect(result).to.deep.equal({
 				username: 'user',
 				hostname: 'host.example.com',
 				port: 22,
+				shareKey: 'abc',
+			});
+		});
+
+		it('should allow optional fields to be omitted', function () {
+			const data = Buffer.from(JSON.stringify({
+				username: 'user',
+				hostname: 'host.example.com',
+				port: 22,
+			}));
+			const result = decode.reuseParams(data);
+			expect(result).to.deep.equal({
+				username: 'user',
+				hostname: 'host.example.com',
+				port: 22,
+				shareKey: undefined,
 			});
 		});
 
@@ -30,11 +47,22 @@ describe('decode', function () {
 			expect(result).to.be.null;
 		});
 
-		it('should return null for invalid field types', function () {
+		it('should return null for invalid types in required fields', function () {
 			const data = Buffer.from(JSON.stringify({
 				username: 'user',
 				hostname: 123,
 				port: '22',
+			}));
+			const result = decode.reuseParams(data);
+			expect(result).to.be.null;
+		});
+
+		it('should return null for invalid types in optional fields', function () {
+			const data = Buffer.from(JSON.stringify({
+				username: 'user',
+				hostname: 'host.example.com',
+				port: 22,
+				shareKey: '',
 			}));
 			const result = decode.reuseParams(data);
 			expect(result).to.be.null;

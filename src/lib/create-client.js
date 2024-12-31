@@ -13,6 +13,7 @@ const INITIAL = Symbol();
 const CONNECTING = Symbol();
 const READY = Symbol();
 const EXECUTING = Symbol();
+const SHARING = Symbol();
 const ERRORED = Symbol();
 
 module.exports = (socket) => {
@@ -69,7 +70,7 @@ module.exports = (socket) => {
 					break;
 
 				case FrameParser.DISCONNECTED:
-					if (state === READY || state === EXECUTING) {
+					if (state === READY || state === EXECUTING || state === SHARING) {
 						exception('SSH connection closed unexpectedly', 'NO_SSH', {
 							reason: decodeJSON(frame.data)?.reason || 'unknown error',
 						});
@@ -115,6 +116,16 @@ module.exports = (socket) => {
 					exception('Fatal error emitted by ssh-bridge daemon', 'DAEMON_ERROR', {
 						reason: decodeJSON(frame.data)?.reason || 'unknown error',
 					});
+					break;
+
+				case FrameParser.SHARED:
+					if (state === SHARING) {
+						state = INITIAL;
+						resolver.resolve(decodeJSON(frame.data)?.shareKey || null);
+						resolver = undefined;
+					} else {
+						protocolException('unexpected SHARED frame');
+					}
 					break;
 			}
 		}
@@ -291,6 +302,13 @@ module.exports = (socket) => {
 			stderr.on('error', () => {});
 
 			return { stdin, stdout, stderr, result };
+		},
+
+		async share() {
+			expectState(READY);
+			sendJSON(FrameParser.SHARE, {});
+			state = SHARING;
+			return attachPromise();
 		},
 
 		async close() {

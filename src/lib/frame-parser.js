@@ -126,4 +126,20 @@ module.exports = class FrameParser {
 	// daemon encounters an unrecoverable situation, the daemon will send an
 	// EXCEPTION frame before immediately closing the client's connection.
 	static get EXCEPTION() { return 14; }
+
+	// After a client acquires an SSH connection (and while there's no command
+	// currently running on it), the client may send a SHARE frame to relinquish
+	// the SSH conection to the daemon's connection pool. However, unlike a
+	// regular cached connection, this shared connection will have a "shareKey",
+	// and other clients can only reuse it if they provide the correct "shareKey"
+	// within the REUSE frame. After the daemon successfully adds the SSH
+	// connection to its connection pool, it will send a SHARED frame back to
+	// the client, containing the "shareKey" assigned to the SSH connection.
+	// Unlike regular cached connections, shared connections have a much shorter
+	// in-cache TTL. Note that after a shared connection is reused, its shareKey
+	// and shorter TTL no longer apply, and it will be treated the same as any
+	// other connection (unless it is subsequently shared again, in which case
+	// it will be assigned a new shareKey).
+	static get SHARE() { return 15; }
+	static get SHARED() { return 16; }
 };

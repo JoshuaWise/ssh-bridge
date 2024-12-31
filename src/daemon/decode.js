@@ -11,13 +11,14 @@ const ValidationError = Symbol();
 exports.reuseParams = (data) => {
 	assert(Buffer.isBuffer(data));
 	try {
-		const { username, hostname, port = 22 } = expectJSON(data);
+		const { username, hostname, port = 22, shareKey } = expectJSON(data);
 
 		validate(isNonEmptyString(hostname));
 		validate(isNonEmptyString(username));
 		validate(isValidPort(port));
+		validate(isNonEmptyString(shareKey) || shareKey === undefined);
 
-		return { username, hostname: hostname.toLowerCase(), port };
+		return { username, hostname: hostname.toLowerCase(), port, shareKey };
 	} catch (err) {
 		if (err === ValidationError) return null;
 		throw err;

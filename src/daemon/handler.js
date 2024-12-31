@@ -1,4 +1,5 @@
 'use strict';
+const { randomBytes } = require('node:crypto');
 const { EventEmitter } = require('node:events');
 const FrameParser = require('../lib/frame-parser');
 const decode = require('./decode');
@@ -109,6 +110,18 @@ module.exports = (signal, socket) => {
 						} else {
 							ssh.endStdin();
 						}
+					}
+					break;
+
+				case FrameParser.SHARE:
+					if (state === READY) {
+						const shareKey = randomBytes(16).toString('hex');
+						ssh.relinquish(true, shareKey);
+						ssh = null;
+						state = INITIAL;
+						sendJSON(FrameParser.SHARED, { shareKey });
+					} else {
+						exception('unexpected SHARE frame');
 					}
 					break;
 			}

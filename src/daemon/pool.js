@@ -7,7 +7,8 @@ const { Client, utils: { parseKey } } = require('ssh2');
 	provides all the necessary interfaces needed to interact with the SSH layer.
  */
 
-const CONNECTIONS_TTL = 1000 * 60 * 60 * 12; // 12 hours
+const SHARED_CONNECTIONS_TTL = 1000 * 5; // 5 seconds
+const CACHED_CONNECTIONS_TTL = 1000 * 60 * 60 * 12; // 12 hours
 const cachedConnections = new Map();
 const cachedCredentials = new Map();
 
@@ -18,8 +19,8 @@ exports.clear = () => {
 	}
 };
 
-exports.reuse = ({ username, hostname, port }, emitter) => {
-	const cacheKey = getCacheKey(username, hostname, port);
+exports.reuse = ({ username, hostname, port, shareKey }, emitter) => {
+	const cacheKey = getFullCacheKey(getCacheKey(username, hostname, port), shareKey);
 	const ssh = cachedConnections.get(cacheKey);
 	if (ssh) {
 		cachedConnections.delete(cacheKey);
@@ -210,24 +211,26 @@ exports.connect = ({ username, hostname, port, fingerprint, reusable, ...auth },
 				queuedInputEnd = true;
 			}
 		},
-		relinquish(shouldReuse) {
-			if (!shouldReuse || !reusable) {
+		relinquish(shouldReuse, shareKey) {
+			if (!shareKey && (!shouldReuse || !reusable)) {
 				connection.end();
 				return;
 			}
 
+			const key = getFullCacheKey(cacheKey, shareKey);
+			const ttl = shareKey ? SHARED_CONNECTIONS_TTL : CACHED_CONNECTIONS_TTL;
 			const cleanup = () => {
 				clearTimeout(ttlTimer);
-				if (cachedConnections.get(cacheKey) === this) {
-					cachedConnections.delete(cacheKey);
+				if (cachedConnections.get(key) === this) {
+					cachedConnections.delete(key);
 				}
 			};
 
-			cachedConnections.get(cacheKey)?.relinquish(false);
-			cachedConnections.set(cacheKey, this);
+			cachedConnections.get(key)?.relinquish(false);
+			cachedConnections.set(key, this);
 			emitter = new EventEmitter();
 			emitter.once('disconnected', cleanup);
-			ttlTimer = setTimeout(() => { cleanup(); connection.end(); }, CONNECTIONS_TTL);
+			ttlTimer = setTimeout(() => { cleanup(); connection.end(); }, ttl);
 		},
 		_reuse(newEmitter) {
 			emitter = newEmitter;
@@ -243,6 +246,11 @@ function getCacheKey(username, hostname, port) {
 		Buffer.from(hostname).toString('base64'),
 		String(port),
 	].join('\n');
+}
+
+function getFullCacheKey(cacheKey, shareKey) {
+	if (!shareKey) return cacheKey;
+	return `${cacheKey}\n${shareKey}`;
 }
 
 function toErrorMessage(err, fingerprintMismatch) {

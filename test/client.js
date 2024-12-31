@@ -677,6 +677,277 @@ describe('client', function () {
 		});
 	});
 
+	describe('share()', function () {
+		const configDir = harness.getConfigDir('share-tests');
+
+		it('should relinquish the SSH connection', async function () {
+			const client = await sshBridge(configDir);
+			try {
+				let result = await client.connect({
+					username: 'testuser_share',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				expect(result.success).to.be.true;
+
+				const shareKey = await client.share();
+				expect(shareKey).to.be.a('string');
+				expect(shareKey).to.match(/^[0-9a-f]{32}$/);
+
+				result = await client.connect({
+					username: 'testuser_share',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				expect(result.success).to.be.true;
+			} finally {
+				await client.close();
+			}
+		});
+
+		it('should allow other clients to reuse the shared connection', async function () {
+			const client = await sshBridge(configDir);
+			try {
+				const result = await client.connect({
+					username: 'testuser_share',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				expect(result.success).to.be.true;
+
+				const shareKey = await client.share();
+				expect(shareKey).to.be.a('string');
+				expect(shareKey).to.match(/^[0-9a-f]{32}$/);
+
+				const secondClient = await sshBridge(configDir);
+				try {
+					const result = await secondClient.reuse({
+						username: 'testuser_share',
+						hostname: '127.0.0.1',
+						port: harness.getSSHPort(),
+						shareKey,
+					});
+
+					expect(result.success).to.be.true;
+					expect(result.banner).to.equal('hello!\r\n');
+					expect(result.fingerprint).to.be.a('string');
+					expect(result.fingerprint).to.match(/^[a-zA-Z0-9+/]+=*$/);
+				} finally {
+					await secondClient.close();
+				}
+			} finally {
+				await client.close();
+			}
+		});
+
+		it('should require a shareKey to reuse the shared connection', async function () {
+			const client = await sshBridge(configDir);
+			try {
+				const result = await client.connect({
+					username: 'testuser_share',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				expect(result.success).to.be.true;
+
+				const shareKey = await client.share();
+				expect(shareKey).to.be.a('string');
+				expect(shareKey).to.match(/^[0-9a-f]{32}$/);
+
+				const secondClient = await sshBridge(configDir);
+				try {
+					const result = await secondClient.reuse({
+						username: 'testuser_share',
+						hostname: '127.0.0.1',
+						port: harness.getSSHPort(),
+					});
+
+					expect(result.success).to.be.false;
+					expect(result.reason).to.equal('no cached connection to reuse');
+				} finally {
+					await secondClient.close();
+				}
+			} finally {
+				await client.close();
+			}
+		});
+
+		it('should require the correct shareKey to reuse the shared connection', async function () {
+			const client = await sshBridge(configDir);
+			try {
+				const result = await client.connect({
+					username: 'testuser_share',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				expect(result.success).to.be.true;
+
+				const shareKey = await client.share();
+				expect(shareKey).to.be.a('string');
+				expect(shareKey).to.match(/^[0-9a-f]{32}$/);
+
+				const secondClient = await sshBridge(configDir);
+				try {
+					const result = await secondClient.reuse({
+						username: 'testuser_share',
+						hostname: '127.0.0.1',
+						port: harness.getSSHPort(),
+						shareKey: shareKey + 'x',
+					});
+
+					expect(result.success).to.be.false;
+					expect(result.reason).to.equal('no cached connection to reuse');
+				} finally {
+					await secondClient.close();
+				}
+			} finally {
+				await client.close();
+			}
+		});
+
+		it('should require the correct user/host/port to reuse the shared connection', async function () {
+			const client = await sshBridge(configDir);
+			try {
+				const result = await client.connect({
+					username: 'testuser_share',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				expect(result.success).to.be.true;
+
+				const shareKey = await client.share();
+				expect(shareKey).to.be.a('string');
+				expect(shareKey).to.match(/^[0-9a-f]{32}$/);
+
+				const secondClient = await sshBridge(configDir);
+				try {
+					const result = await secondClient.reuse({
+						username: 'testuser_share_2',
+						hostname: '127.0.0.1',
+						port: harness.getSSHPort(),
+						shareKey,
+					});
+
+					expect(result.success).to.be.false;
+					expect(result.reason).to.equal('no cached connection to reuse');
+				} finally {
+					await secondClient.close();
+				}
+			} finally {
+				await client.close();
+			}
+		});
+
+		it('should allow multiple shared connections to the same user/host/port', async function () {
+			let shareKey1;
+			let shareKey2;
+
+			const client = await sshBridge(configDir);
+			try {
+				const result = await client.connect({
+					username: 'testuser_share',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				expect(result.success).to.be.true;
+
+				shareKey1 = await client.share();
+				expect(shareKey1).to.be.a('string');
+				expect(shareKey1).to.match(/^[0-9a-f]{32}$/);
+			} finally {
+				await client.close();
+			}
+
+			const secondClient = await sshBridge(configDir);
+			try {
+				const result = await secondClient.connect({
+					username: 'testuser_share',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				expect(result.success).to.be.true;
+
+				shareKey2 = await secondClient.share();
+				expect(shareKey2).to.be.a('string');
+				expect(shareKey2).to.match(/^[0-9a-f]{32}$/);
+			} finally {
+				await secondClient.close();
+			}
+
+			const thirdClient = await sshBridge(configDir);
+			try {
+				const result = await thirdClient.reuse({
+					username: 'testuser_share',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					shareKey: shareKey1,
+				});
+
+				expect(result.success).to.be.true;
+			} finally {
+				await thirdClient.close();
+			}
+
+			const fourthClient = await sshBridge(configDir);
+			try {
+				const result = await fourthClient.reuse({
+					username: 'testuser_share',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					shareKey: shareKey2,
+				});
+
+				expect(result.success).to.be.true;
+			} finally {
+				await fourthClient.close();
+			}
+		});
+
+		it('should not allow share() when the client is in an errored state', async function () {
+			const client = await sshBridge(configDir);
+			try {
+				const result = await client.connect({
+					username: 'testuser_share',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				expect(result.success).to.be.true;
+			} finally {
+				await client.close();
+			}
+
+			await expectReject(client.share() , TypeError, 'Client is closed');
+		});
+
+		it('should not allow share() in an invalid state', async function () {
+			const client = await sshBridge(configDir);
+			try {
+				client.exec(shellEscape('node', '-e', 'console.log("Hello, World!")'));
+				await expectReject(client.share(), TypeError, 'Method not available in the current state');
+			} finally {
+				await client.close();
+			}
+		});
+	});
+
 	describe('close()', function () {
 		const configDir = harness.getConfigDir('close-tests');
 
