@@ -1,4 +1,6 @@
 'use strict';
+const assert = require('node:assert');
+const { randomBytes } = require('node:crypto');
 const { EventEmitter } = require('node:events');
 const { Client, utils: { parseKey } } = require('ssh2');
 
@@ -20,7 +22,11 @@ exports.clear = () => {
 };
 
 exports.reuse = ({ username, hostname, port, shareKey }, emitter) => {
-	const cacheKey = getFullCacheKey(getCacheKey(username, hostname, port), shareKey);
+	let cacheKey = getCacheKey(username, hostname, port);
+	if (shareKey) {
+		cacheKey = getExtendedCacheKey(cacheKey, shareKey);
+	}
+
 	const ssh = cachedConnections.get(cacheKey);
 	if (ssh) {
 		cachedConnections.delete(cacheKey);
@@ -133,6 +139,7 @@ exports.connect = ({ username, hostname, port, fingerprint, reusable, ...auth },
 		...auth,
 	});
 
+	let shareKey = null;
 	let ttlTimer = null;
 	let liveChannel = null;
 	let queuedInputData = [];
@@ -211,14 +218,20 @@ exports.connect = ({ username, hostname, port, fingerprint, reusable, ...auth },
 				queuedInputEnd = true;
 			}
 		},
-		relinquish(shouldReuse, shareKey) {
-			if (!shareKey && (!shouldReuse || !reusable)) {
+		relinquish(reuse = false) {
+			if (reuse !== 'SHARE' && (!reuse || !reusable)) {
 				connection.end();
 				return;
 			}
 
-			const key = getFullCacheKey(cacheKey, shareKey);
-			const ttl = shareKey ? SHARED_CONNECTIONS_TTL : CACHED_CONNECTIONS_TTL;
+			let key = cacheKey;
+			let ttl = CACHED_CONNECTIONS_TTL;
+			if (reuse === 'SHARE') {
+				if (!shareKey) shareKey = randomBytes(16).toString('hex');
+				key = getExtendedCacheKey(cacheKey, shareKey);
+				ttl = SHARED_CONNECTIONS_TTL;
+			}
+
 			const cleanup = () => {
 				clearTimeout(ttlTimer);
 				if (cachedConnections.get(key) === this) {
@@ -231,6 +244,10 @@ exports.connect = ({ username, hostname, port, fingerprint, reusable, ...auth },
 			emitter = new EventEmitter();
 			emitter.once('disconnected', cleanup);
 			ttlTimer = setTimeout(() => { cleanup(); connection.end(); }, ttl);
+
+			if (reuse === 'SHARE') {
+				return shareKey;
+			}
 		},
 		_reuse(newEmitter) {
 			emitter = newEmitter;
@@ -248,8 +265,9 @@ function getCacheKey(username, hostname, port) {
 	].join('\n');
 }
 
-function getFullCacheKey(cacheKey, shareKey) {
-	if (!shareKey) return cacheKey;
+function getExtendedCacheKey(cacheKey, shareKey) {
+	assert(cacheKey);
+	assert(shareKey);
 	return `${cacheKey}\n${shareKey}`;
 }
 

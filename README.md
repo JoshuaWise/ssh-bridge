@@ -102,7 +102,7 @@ The `result` promise will resolve when the remote command exits. If it exited no
 
 Relinquishes the client's SSH connection to the daemon's connection pool. However, unlike a regular cached connection, the shared connection will have an associated `shareKey` (returned by this function). Clients can only reuse a shared connection by providing the correct `shareKey` to `client.reuse()`.
 
-Shared connections are automatically cleaned up if they aren't reused within 5 seconds of being shared. Shared connections allow multiple coordinated processes to efficiently share the same SSH connection.
+Shared connections are automatically cleaned up if they aren't reused within 5 seconds of being shared. Shared connections allow multiple coordinated processes to efficiently share the same SSH connection (although only one client can actually use an SSH connection at any given time). If an SSH connection is shared multiple times (even by different proccesses), it will have the same `shareKey` each time.
 
 This function can only be used after successfully acquiring an SSH connnection with `client.connect()` or `client.reuse()`, and it cannot be used while running a command. After calling `client.share()`, the client no longer has an SSH connection, but it can acquire a new one with `client.connect()` or `client.reuse()`.
 

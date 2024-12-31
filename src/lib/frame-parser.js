@@ -139,7 +139,7 @@ module.exports = class FrameParser {
 	// in-cache TTL. Note that after a shared connection is reused, its shareKey
 	// and shorter TTL no longer apply, and it will be treated the same as any
 	// other connection (unless it is subsequently shared again, in which case
-	// it will be assigned a new shareKey).
+	// it will be assigned the same shareKey).
 	static get SHARE() { return 15; }
 	static get SHARED() { return 16; }
 };
