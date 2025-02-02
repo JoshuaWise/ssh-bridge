@@ -277,17 +277,25 @@ function toErrorMessage(err, fingerprintMismatch) {
 			if (fingerprintMismatch) {
 				return `host fingerprint has changed\nWARNING: You could be getting hacked! Contact an administrator immediately!\n    expected fingerprint: ${fingerprintMismatch.expected}\n    received fingerprint: ${fingerprintMismatch.received}`;
 			}
-			return `SSH handshake failed (${err.message})`;
+			return `SSH handshake failed${getErrorMessage(err)}`;
 		case 'client-socket':
-			return `connection error (${err.message})`;
+			return `connection error${getErrorMessage(err)}`;
 		case 'client-timeout':
 			return 'connection timed out';
 		case 'client-authentication':
 			return 'authentication denied';
 		case 'client-dns':
-			return `DNS lookup failed (${err.message})`;
+			return `DNS lookup failed${getErrorMessage(err)}`;
 		default:
 			console.error(err);
-			return `unexpected error (${err.message})`;
+			return `unexpected error${getErrorMessage(err)}`;
 	}
+}
+
+function getErrorMessage(err) {
+	let message = err.message;
+	if (!message && err instanceof AggregateError) {
+		message = err.errors.findLast(x => x.message)?.message;
+	}
+	return message ? ` (${message})` : '';
 }
