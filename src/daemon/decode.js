@@ -100,6 +100,23 @@ exports.command = (data) => {
 	}
 };
 
+exports.resizeParams = (data) => {
+	assert(Buffer.isBuffer(data));
+	try {
+		let { rows, cols } = expectJSON(data);
+
+		validate(Number.isInteger(rows));
+		validate(Number.isInteger(cols));
+		rows = Math.max(0, Math.min(rows, 512));
+		cols = Math.max(0, Math.min(cols, 512));
+
+		return { rows, cols };
+	} catch (err) {
+		if (err === ValidationError) return null;
+		throw err;
+	}
+};
+
 function validate(boolean) {
 	if (!boolean) {
 		throw ValidationError;

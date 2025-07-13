@@ -15,6 +15,7 @@ let sshPort = null;
 let sshKey = null;
 let sshKeyEncrypted = null;
 let sshPassword = null;
+let nextSessionId = 1;
 
 exports.getConfigDir = (label) => {
 	const random = randomBytes(12).toString('hex');
@@ -159,14 +160,30 @@ async function startSSHServer() {
 
 			client.on('ready', () => {
 				client.on('session', (accept) => {
+					const sessionId = nextSessionId++;
 					const session = accept();
+					let ptyPath = null;
+					let pty = null;
+					session.on('pty', (accept, reject, info) => {
+						ptyPath = path.join(TEMP_DIR, `fake-pty-file-${sessionId}.json`);
+						pty = { ...info };
+						fs.writeFileSync(ptyPath, JSON.stringify(pty));
+						accept();
+					});
+					session.on('window-change', (accept, reject, info) => {
+						if (!pty) return reject && reject();
+						pty = { ...pty, ...info };
+						fs.writeFileSync(ptyPath, JSON.stringify(pty));
+						accept && accept();
+					});
 					session.on('exec', (accept, reject, info) => {
 						if (info.command === '<<TEST_COMMAND_THAT_ERRORS>>') {
 							return reject();
 						}
 
 						const stream = accept();
-						const child = childProcess.spawn(info.command, { shell: true });
+						const env = { ...process.env, ...pty && { PTY: ptyPath } };
+						const child = childProcess.spawn(info.command, { shell: true, env });
 
 						child.stdout.on('data', (data) => stream.write(data));
 						child.stderr.on('data', (data) => stream.stderr.write(data));

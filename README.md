@@ -98,6 +98,19 @@ The returned object has these properties:
 
 The `result` promise will resolve when the remote command exits. If it exited normally, `code` will be the exit code of the remote process. Otherwise, if the remote process was terminated by a signal, `signal` will be the name of that signal (e.g., `SIGTERM`). You can communicate with the remote process's I/O streams via `stdin`, `stdout`, and `stderr`.
 
+If `options.pty` is `true`, a Pseudo-TTY will be allocated for the execution of this command. Using a Pseudo-TTY can be useful when imitating the behavior of an actual terminal.
+
+### client.resize(*params*) -> *void*
+
+Sets the client's window size, which is utilized when running a command with a Pseudo-TTY.
+
+The following params are supported:
+
+- `rows` (number, required)
+	* The number of rows of the Pseudo-TTY. The default is 24 rows.
+- `cols` (number, required)
+	* The number of columns of the Pseudo-TTY. The default is 80 columns.
+
 ### client.share() -> *Promise&lt;string>*
 
 Relinquishes the client's SSH connection to the daemon's connection pool. However, unlike a regular cached connection, the shared connection will have an associated `shareKey` (returned by this function). Clients can only reuse a shared connection by providing the correct `shareKey` to `client.reuse()`.

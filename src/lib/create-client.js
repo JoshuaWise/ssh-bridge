@@ -304,6 +304,10 @@ module.exports = (socket) => {
 			return { stdin, stdout, stderr, result };
 		},
 
+		resize({ ...params } = {}) {
+			sendJSON(FrameParser.RESIZE, params);
+		},
+
 		async share() {
 			expectState(READY);
 			sendJSON(FrameParser.SHARE, {});

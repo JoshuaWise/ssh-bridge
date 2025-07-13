@@ -638,7 +638,27 @@ describe('client', function () {
 			}
 		});
 
-		it('should run the command with an allocated PTY, if requested');
+		it('should run the command with an allocated PTY, if requested', async function () {
+			const client = await sshBridge(configDir);
+			try {
+				await client.connect({
+					username: 'testuser',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				const { stdout, result } = client.exec(shellEscape('node', '-e', 'const pty = require(process.env.PTY); console.log(`${pty.rows}, ${pty.cols}`)'), { pty: true });
+				const { code, signal } = await result;
+				const stdoutString = (await streamToBuffer(stdout)).toString();
+
+				expect(code).to.equal(0);
+				expect(signal).to.be.undefined;
+				expect(stdoutString).to.equal('24, 80\n');
+			} finally {
+				await client.close();
+			}
+		});
 
 		it('should not allow exec() when the client is in an errored state', async function () {
 			const client = await sshBridge(configDir);
@@ -1078,6 +1098,297 @@ describe('client', function () {
 				'close resolved',
 				'next tick',
 			]);
+		});
+	});
+
+	describe('resize()', function () {
+		const configDir = harness.getConfigDir('resize-tests');
+
+		it('should set the size of future PTYs before connecting', async function () {
+			const client = await sshBridge(configDir);
+			try {
+				client.resize({ rows: 300, cols: 200 });
+
+				await client.connect({
+					username: 'testuser',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				const { stdout, result } = client.exec(shellEscape('node', '-e', 'const pty = require(process.env.PTY); console.log(`${pty.rows}, ${pty.cols}`)'), { pty: true });
+				const { code, signal } = await result;
+				const stdoutString = (await streamToBuffer(stdout)).toString();
+
+				expect(code).to.equal(0);
+				expect(signal).to.be.undefined;
+				expect(stdoutString).to.equal('300, 200\n');
+			} finally {
+				await client.close();
+			}
+		});
+
+		it('should set the size of future PTYs after connecting', async function () {
+			const client = await sshBridge(configDir);
+			try {
+				await client.connect({
+					username: 'testuser',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				client.resize({ rows: 310, cols: 210 });
+
+				const { stdout, result } = client.exec(shellEscape('node', '-e', 'const pty = require(process.env.PTY); console.log(`${pty.rows}, ${pty.cols}`)'), { pty: true });
+				const { code, signal } = await result;
+				const stdoutString = (await streamToBuffer(stdout)).toString();
+
+				expect(code).to.equal(0);
+				expect(signal).to.be.undefined;
+				expect(stdoutString).to.equal('310, 210\n');
+			} finally {
+				await client.close();
+			}
+		});
+
+		it('should set the size of PTYs being created concurrently', async function () {
+			this.slow(1000);
+			const client = await sshBridge(configDir);
+			try {
+				await client.connect({
+					username: 'testuser',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				const { stdout, result } = client.exec(shellEscape('node', '-e', 'setTimeout(() => { const pty = require(process.env.PTY); console.log(`${pty.rows}, ${pty.cols}`) }, 500)'), { pty: true });
+				client.resize({ rows: 320, cols: 220 });
+
+				const { code, signal } = await result;
+				const stdoutString = (await streamToBuffer(stdout)).toString();
+
+				expect(code).to.equal(0);
+				expect(signal).to.be.undefined;
+				expect(stdoutString).to.equal('320, 220\n');
+			} finally {
+				await client.close();
+			}
+		});
+
+		it('should set the size of an active PTY', async function () {
+			this.slow(1000);
+			const client = await sshBridge(configDir);
+			try {
+				await client.connect({
+					username: 'testuser',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				const { stdout, result } = client.exec(shellEscape('node', '-e', 'console.log("ready"); setTimeout(() => { const pty = require(process.env.PTY); console.log(`${pty.rows}, ${pty.cols}`) }, 500)'), { pty: true });
+
+				let stdoutString = '';
+				let stdoutEnded = false;
+				stdout.on('data', (chunk) => { stdoutString += chunk.toString(); });
+				stdout.on('end', () => { stdoutEnded = true });
+
+				const loopLimit = Date.now() + 1000;
+				for (;;) {
+					await new Promise(r => setTimeout(r, 10));
+					if (stdoutString === 'ready\n') {
+						client.resize({ rows: 330, cols: 230 });
+						break;
+					} else if (Date.now() >= loopLimit) {
+						throw new Error('Expected output was never detected');
+					}
+				}
+
+				const { code, signal } = await result;
+				expect(code).to.equal(0);
+				expect(signal).to.be.undefined;
+				expect(stdoutString).to.equal('ready\n330, 230\n');
+				await new Promise(r => setImmediate(r));
+				expect(stdoutEnded).to.be.true;
+			} finally {
+				await client.close();
+			}
+		});
+
+		it('should always apply the last size, when called multiple times', async function () {
+			this.slow(1000);
+			const client = await sshBridge(configDir);
+			try {
+				await client.connect({
+					username: 'testuser',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				const { stdout, result } = client.exec(shellEscape('node', '-e', 'setTimeout(() => { const pty = require(process.env.PTY); console.log(`${pty.rows}, ${pty.cols}`) }, 500)'), { pty: true });
+				client.resize({ rows: 300, cols: 200 });
+				client.resize({ rows: 350, cols: 250 });
+				client.resize({ rows: 340, cols: 240 });
+
+				const { code, signal } = await result;
+				const stdoutString = (await streamToBuffer(stdout)).toString();
+
+				expect(code).to.equal(0);
+				expect(signal).to.be.undefined;
+				expect(stdoutString).to.equal('340, 240\n');
+			} finally {
+				await client.close();
+			}
+		});
+
+		it('should not change a dimension set to 0 or negative', async function () {
+			const client = await sshBridge(configDir);
+			try {
+				client.resize({ rows: 360, cols: 260 });
+				client.resize({ rows: 320, cols: 0 });
+				client.resize({ rows: 370, cols: -1 });
+
+				await client.connect({
+					username: 'testuser',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				const { stdout, result } = client.exec(shellEscape('node', '-e', 'const pty = require(process.env.PTY); console.log(`${pty.rows}, ${pty.cols}`)'), { pty: true });
+				const { code, signal } = await result;
+				const stdoutString = (await streamToBuffer(stdout)).toString();
+
+				expect(code).to.equal(0);
+				expect(signal).to.be.undefined;
+				expect(stdoutString).to.equal('370, 260\n');
+			} finally {
+				await client.close();
+			}
+		});
+
+		it('should clamp dimensions to a maximum value of 512', async function () {
+			const client = await sshBridge(configDir);
+			try {
+				client.resize({ rows: 1000, cols: 2000 });
+
+				await client.connect({
+					username: 'testuser',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				const { stdout, result } = client.exec(shellEscape('node', '-e', 'const pty = require(process.env.PTY); console.log(`${pty.rows}, ${pty.cols}`)'), { pty: true });
+				const { code, signal } = await result;
+				const stdoutString = (await streamToBuffer(stdout)).toString();
+
+				expect(code).to.equal(0);
+				expect(signal).to.be.undefined;
+				expect(stdoutString).to.equal('512, 512\n');
+			} finally {
+				await client.close();
+			}
+		});
+
+		it('should apply size changes even across multiple SSH connections', async function () {
+			const client = await sshBridge(configDir);
+			try {
+				await client.connect({
+					username: 'testuser',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				client.resize({ rows: 380, cols: 280 });
+
+				{
+					const { stdout, result } = client.exec(shellEscape('node', '-e', 'const pty = require(process.env.PTY); console.log(`${pty.rows}, ${pty.cols}`)'), { pty: true });
+					const { code, signal } = await result;
+					const stdoutString = (await streamToBuffer(stdout)).toString();
+
+					expect(code).to.equal(0);
+					expect(signal).to.be.undefined;
+					expect(stdoutString).to.equal('380, 280\n');
+				}
+
+				const shareKey = await client.share();
+				await client.connect({
+					username: 'testuser',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				{
+					const { stdout, result } = client.exec(shellEscape('node', '-e', 'const pty = require(process.env.PTY); console.log(`${pty.rows}, ${pty.cols}`)'), { pty: true });
+					const { code, signal } = await result;
+					const stdoutString = (await streamToBuffer(stdout)).toString();
+
+					expect(code).to.equal(0);
+					expect(signal).to.be.undefined;
+					expect(stdoutString).to.equal('380, 280\n');
+				}
+
+				client.resize({ rows: 390, cols: 290 });
+				await client.share();
+				await client.reuse({
+					username: 'testuser',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					shareKey,
+				});
+
+				{
+					const { stdout, result } = client.exec(shellEscape('node', '-e', 'const pty = require(process.env.PTY); console.log(`${pty.rows}, ${pty.cols}`)'), { pty: true });
+					const { code, signal } = await result;
+					const stdoutString = (await streamToBuffer(stdout)).toString();
+
+					expect(code).to.equal(0);
+					expect(signal).to.be.undefined;
+					expect(stdoutString).to.equal('390, 290\n');
+				}
+
+				{
+					const { stdout, result } = client.exec(shellEscape('node', '-e', 'console.log(`${process.env.PTY}`)'));
+					const { code, signal } = await result;
+					const stdoutString = (await streamToBuffer(stdout)).toString();
+
+					expect(code).to.equal(0);
+					expect(signal).to.be.undefined;
+					expect(stdoutString).to.equal('undefined\n');
+				}
+			} finally {
+				await client.close();
+			}
+		});
+
+		it('should do nothing if the client is already closed', async function () {
+			const client = await sshBridge(configDir);
+			try {
+				await client.connect({
+					username: 'testuser',
+					hostname: '127.0.0.1',
+					port: harness.getSSHPort(),
+					password: 'correct_password',
+				});
+
+				expect(client.closed).to.be.false;
+				const closePromise = client.close();
+				expect(client.closed).to.be.true;
+				client.resize({ rows: 300, cols: 200 });
+				expect(client.closed).to.be.true;
+				await closePromise;
+				expect(client.closed).to.be.true;
+				client.resize({ rows: 300, cols: 200 });
+				expect(client.closed).to.be.true;
+			} finally {
+				await client.close();
+			}
 		});
 	});
 });

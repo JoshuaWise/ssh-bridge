@@ -144,6 +144,8 @@ exports.connect = ({ username, hostname, port, fingerprint, reusable, ...auth },
 	let liveChannel = null;
 	let queuedInputData = [];
 	let queuedInputEnd = false;
+	let queuedResize = null;
+	let hasPTY = false;
 	return {
 		challengeResponse(responses) {
 			if (challengeCallbacks.length) {
@@ -151,15 +153,22 @@ exports.connect = ({ username, hostname, port, fingerprint, reusable, ...auth },
 			}
 		},
 		exec(command, pty) {
+			hasPTY = !!pty;
 			connection.exec(command, { pty }, (error, channel) => {
 				if (error != null) {
 					queuedInputData = [];
 					queuedInputEnd = false;
+					queuedResize = null;
+					hasPTY = false;
 					reusable = false; // Don't reuse connections that have SSH-level errors
 					emitter.emit('result', { error: toErrorMessage(error) });
 					return;
 				}
 
+				if (queuedResize) {
+					const { rows, cols } = queuedResize;
+					channel.setWindow(rows, cols, 480, 640);
+				}
 				for (const data of queuedInputData) {
 					channel.write(data);
 				}
@@ -170,9 +179,11 @@ exports.connect = ({ username, hostname, port, fingerprint, reusable, ...auth },
 				liveChannel = channel;
 				queuedInputData = [];
 				queuedInputEnd = false;
+				queuedResize = null;
 
 				channel.on('close', (code, signal) => {
 					liveChannel = null;
+					hasPTY = false;
 					if (error != null) {
 						reusable = false; // Don't reuse connections that have SSH-level errors
 						emitter.emit('result', { error: toErrorMessage(error) });
@@ -216,6 +227,15 @@ exports.connect = ({ username, hostname, port, fingerprint, reusable, ...auth },
 				}
 			} else {
 				queuedInputEnd = true;
+			}
+		},
+		resize(rows, cols) {
+			if (hasPTY) {
+				if (liveChannel) {
+					liveChannel.setWindow(rows, cols, 480, 640);
+				} else {
+					queuedResize = { rows, cols };
+				}
 			}
 		},
 		relinquish(reuse = false) {

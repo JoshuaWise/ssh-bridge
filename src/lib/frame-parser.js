@@ -142,4 +142,9 @@ module.exports = class FrameParser {
 	// it will be assigned the same shareKey).
 	static get SHARE() { return 15; }
 	static get SHARED() { return 16; }
+
+	// Clients may send a RESIZE frame at any time to indicate the size of their
+	// associated TTY. The daemon will apply this to any current or future PTY
+	// created from a PTY_COMMAND frame.
+	static get RESIZE() { return 17; }
 };

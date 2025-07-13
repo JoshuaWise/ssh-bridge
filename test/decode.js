@@ -279,4 +279,67 @@ describe('decode', function () {
 			expect(result).to.be.null;
 		});
 	});
+
+	describe('resizeParams()', function () {
+		it('should correctly decode valid challenge responses', function () {
+			const data = Buffer.from(JSON.stringify({ rows: 300, cols: 200 }));
+			const result = decode.resizeParams(data);
+			expect(result).to.deep.equal({ rows: 300, cols: 200 });
+		});
+
+		it('should return null for malformed JSON', function () {
+			const data = Buffer.from('invalid json');
+			const result = decode.resizeParams(data);
+			expect(result).to.be.null;
+		});
+
+		it('should return null for missing required fields', function () {
+			{
+				const data = Buffer.from(JSON.stringify({ rows: 300 }));
+				const result = decode.resizeParams(data);
+				expect(result).to.be.null;
+			}
+			{
+				const data = Buffer.from(JSON.stringify({ cols: 200 }));
+				const result = decode.resizeParams(data);
+				expect(result).to.be.null;
+			}
+		});
+
+		it('should return null if rows/cols are not integers', function () {
+			{
+				const data = Buffer.from(JSON.stringify({ rows: 300.1, cols: 200 }));
+				const result = decode.resizeParams(data);
+				expect(result).to.be.null;
+			}
+			{
+				const data = Buffer.from(JSON.stringify({ rows: 300, cols: 200.1 }));
+				const result = decode.resizeParams(data);
+				expect(result).to.be.null;
+			}
+			{
+				const data = Buffer.from(JSON.stringify({ rows: '300', cols: '200' }));
+				const result = decode.resizeParams(data);
+				expect(result).to.be.null;
+			}
+			{
+				const data = Buffer.from(JSON.stringify({ rows: null, cols: null }));
+				const result = decode.resizeParams(data);
+				expect(result).to.be.null;
+			}
+		});
+
+		it('should clamp rows/cols to be within [0, 512]', function () {
+			{
+				const data = Buffer.from(JSON.stringify({ rows: 513, cols: 17179869184 }));
+				const result = decode.resizeParams(data);
+				expect(result).to.deep.equal({ rows: 512, cols: 512 });
+			}
+			{
+				const data = Buffer.from(JSON.stringify({ rows: -17179869184, cols: -1 }));
+				const result = decode.resizeParams(data);
+				expect(result).to.deep.equal({ rows: 0, cols: 0 });
+			}
+		});
+	});
 });

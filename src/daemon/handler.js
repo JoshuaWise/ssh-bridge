@@ -20,6 +20,8 @@ module.exports = (signal, socket) => {
 	const emitter = new EventEmitter();
 	const frameParser = new FrameParser();
 	let state = INITIAL;
+	let rows = 24;
+	let cols = 80;
 	let ssh = null;
 
 	const onAbort = () => {
@@ -93,7 +95,7 @@ module.exports = (signal, socket) => {
 						const command = decode.command(frame.data);
 						if (command) {
 							state = EXECUTING;
-							ssh.exec(command, frame.type === FrameParser.PTY_COMMAND);
+							ssh.exec(command, (frame.type === FrameParser.PTY_COMMAND) && { rows, cols });
 						} else {
 							exception('malformed command string');
 						}
@@ -120,6 +122,19 @@ module.exports = (signal, socket) => {
 						sendJSON(FrameParser.SHARED, { shareKey });
 					} else {
 						exception('unexpected SHARE frame');
+					}
+					break;
+
+				case FrameParser.RESIZE:
+					if (state !== ERRORED) {
+						const size = decode.resizeParams(frame.data);
+						if (size) {
+							rows = size.rows || rows;
+							cols = size.cols || cols;
+							ssh && ssh.resize(rows, cols);
+						} else {
+							exception('malformed RESIZE parameters');
+						}
 					}
 					break;
 			}
